@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express'
 import { prisma } from '../../config/prisma'
 import { Errors } from '../../utils/errors'
+import { dispatch, EventTopics } from '../../config/events'
 
 export async function listTasks(req: Request, res: Response, next: NextFunction) {
   try {
@@ -97,6 +98,14 @@ export async function createTask(req: Request, res: Response, next: NextFunction
     })
     await prisma.auditLog.create({
       data: { userId: req.user!.id, action: 'task.created', entity: 'Task', entityId: task.id },
+    })
+    dispatch(EventTopics.TASK_CREATED, {
+      id: task.id,
+      title: task.title,
+      ownerId: task.ownerId,
+      clientId: task.clientId,
+      priority: task.priority,
+      dueAt: task.dueAt,
     })
     res.status(201).json({ task })
   } catch (err) {

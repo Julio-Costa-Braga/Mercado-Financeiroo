@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express'
 import { prisma } from '../../config/prisma'
+import { dispatch, EventTopics } from '../../config/events'
 
 interface ScoreBreakdown {
   reason: string
@@ -110,6 +111,8 @@ export async function recalcClientScore(req: Request, res: Response, next: NextF
         data: { clientId: id, score, breakdown: breakdown as any },
       }),
     ])
+
+    dispatch(EventTopics.RETENTION_SCORE_CHANGED, { clientId: id, score, breakdown })
 
     res.json({ score, breakdown })
   } catch (err) {
