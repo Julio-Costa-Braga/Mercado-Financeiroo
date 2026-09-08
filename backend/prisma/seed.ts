@@ -179,6 +179,78 @@ async function main() {
     indexAssets.push(asset)
   }
 
+  // ETFs
+  const etfs = [
+    { ticker: 'SPY', name: 'SPDR S&P 500 ETF Trust', sector: 'Indices' },
+    { ticker: 'QQQ', name: 'Invesco QQQ Trust', sector: 'Technology' },
+    { ticker: 'IVV', name: 'iShares Core S&P 500 ETF', sector: 'Indices' },
+    { ticker: 'VTI', name: 'Vanguard Total Stock Market ETF', sector: 'Broad Market' },
+    { ticker: 'GLD', name: 'SPDR Gold Shares', sector: 'Precious Metals' },
+    { ticker: 'EEM', name: 'iShares MSCI Emerging Markets ETF', sector: 'Emerging Markets' },
+  ]
+
+  const etfAssets: any[] = []
+  for (const e of etfs) {
+    const asset = await prisma.asset.upsert({
+      where: { ticker_type: { ticker: e.ticker, type: 'ETF' } },
+      update: {},
+      create: {
+        ticker: e.ticker,
+        name: e.name,
+        type: 'ETF',
+        market: 'ETF',
+        exchange: 'US',
+        sector: e.sector,
+        currency: 'USD',
+      },
+    })
+    etfAssets.push(asset)
+  }
+
+  // ETF quotes
+  const etfQuotes = [
+    { price: 562.4, change1D: 0.42, change5D: 1.4, change30D: 3.1, marketCap: 560000000000, volume: 52000000, expenseRatio: 0.09 },
+    { price: 485.7, change1D: 0.85, change5D: 2.2, change30D: 5.6, marketCap: 290000000000, volume: 44000000, expenseRatio: 0.2 },
+    { price: 566.2, change1D: 0.4, change5D: 1.3, change30D: 3.0, marketCap: 420000000000, volume: 38000000, expenseRatio: 0.03 },
+    { price: 294.7, change1D: 0.5, change5D: 1.6, change30D: 3.8, marketCap: 410000000000, volume: 22000000, expenseRatio: 0.03 },
+    { price: 242.8, change1D: -0.7, change5D: -1.1, change30D: 4.2, marketCap: 68000000000, volume: 8500000, expenseRatio: 0.4 },
+    { price: 44.9, change1D: 0.3, change5D: 1.9, change30D: 2.7, marketCap: 61000000000, volume: 32000000, expenseRatio: 0.7 },
+  ]
+
+  etfAssets.forEach(async (asset, i) => {
+    const q = etfQuotes[i]
+    if (!q) return
+    await prisma.quote.upsert({
+      where: { id: `quote-${asset.id}` },
+      update: {},
+      create: {
+        id: `quote-${asset.id}`,
+        assetId: asset.id,
+        price: q.price,
+        open: q.price * 0.996,
+        high: q.price * 1.008,
+        low: q.price * 0.992,
+        prevClose: q.price / (1 + q.change1D / 100),
+        volume: BigInt(q.volume),
+        marketCap: BigInt(q.marketCap),
+        changePct1D: q.change1D,
+        changePct5D: q.change5D,
+        changePct30D: q.change30D,
+      },
+    })
+    await prisma.fundamental.upsert({
+      where: { id: `f-${asset.id}` },
+      update: {},
+      create: {
+        id: `f-${asset.id}`,
+        assetId: asset.id,
+        marketCap: BigInt(q.marketCap),
+        aum: BigInt(q.marketCap),
+        expenseRatio: q.expenseRatio,
+      },
+    })
+  })
+
   // Quotes for stocks
   const stockQuotes = [
     { price: 128.5, change1D: 3.25, change5D: 8.1, change30D: 25.4, marketCap: 3150000000000, volume: 45000000, pe: 55.2 },
@@ -445,6 +517,175 @@ async function main() {
       },
     })
   }
+
+  // MACRO (M11)
+  const macroIndicators = [
+    { code: 'FED_RATE', name: 'Fed Funds Rate', country: 'EUA', region: 'Americas', frequency: 'Monthly', unit: '%', description: 'Taxa básica de juros dos EUA' },
+    { code: 'ECB_RATE', name: 'ECB Main Rate', country: 'Zona Euro', region: 'Europe', frequency: 'Monthly', unit: '%', description: 'Taxa principal do BCE' },
+    { code: 'US_CPI', name: 'Consumer Price Index (US)', country: 'EUA', region: 'Americas', frequency: 'Monthly', unit: 'YoY %', description: 'Inflação ao consumidor dos EUA' },
+    { code: 'US_UNEMP', name: 'Unemployment Rate (US)', country: 'EUA', region: 'Americas', frequency: 'Monthly', unit: '%', description: 'Taxa de desemprego dos EUA' },
+    { code: 'BR_SELIC', name: 'Taxa Selic', country: 'Brasil', region: 'Americas', frequency: 'Monthly', unit: '% a.a.', description: 'Taxa básica de juros do Brasil' },
+    { code: 'PT_CPI', name: 'IPC Portugal', country: 'Portugal', region: 'Europe', frequency: 'Monthly', unit: 'YoY %', description: 'Inflação ao consumidor de Portugal' },
+  ]
+
+  for (const ind of macroIndicators) {
+    const indicator = await prisma.economicIndicator.upsert({
+      where: { code: ind.code },
+      update: {},
+      create: ind,
+    })
+
+    await prisma.economicObservation.upsert({
+      where: { indicatorId_period: { indicatorId: indicator.id, period: new Date('2026-01-01') } },
+      update: {},
+      create: { indicatorId: indicator.id, value: 3.5 + Math.random() * 2, period: new Date('2026-01-01'), previous: 3.4 + Math.random() * 2 },
+    })
+    await prisma.economicObservation.upsert({
+      where: { indicatorId_period: { indicatorId: indicator.id, period: new Date('2026-02-01') } },
+      update: {},
+      create: { indicatorId: indicator.id, value: 3.4 + Math.random() * 2, period: new Date('2026-02-01'), previous: 3.5 + Math.random() * 2 },
+    })
+    await prisma.economicObservation.upsert({
+      where: { indicatorId_period: { indicatorId: indicator.id, period: new Date('2026-03-01') } },
+      update: {},
+      create: { indicatorId: indicator.id, value: 3.3 + Math.random() * 2, period: new Date('2026-03-01'), previous: 3.4 + Math.random() * 2 },
+    })
+  }
+
+  // CALENDÁRIO ECONÔMICO (M12)
+  const calStart = new Date()
+  const calendarEvents = [
+    { days: 1, country: 'EUA', indicator: 'FOMC Rate Decision', impact: 'HIGH', forecast: 3.5, previous: 3.5 },
+    { days: 2, country: 'EUA', indicator: 'Initial Jobless Claims', impact: 'MEDIUM', forecast: 215, previous: 212 },
+    { days: 3, country: 'Zona Euro', indicator: 'CPI Flash Estimate', impact: 'HIGH', forecast: 2.6, previous: 2.7 },
+    { days: 4, country: 'EUA', indicator: 'NFIB Small Business Optimism', impact: 'LOW', forecast: 102, previous: 101.9 },
+    { days: 5, country: 'Brasil', indicator: 'IPCA Monthly', impact: 'HIGH', forecast: 0.3, previous: 0.32 },
+    { days: 6, country: 'Portugal', indicator: 'Unemployment Rate', impact: 'MEDIUM', forecast: 6.1, previous: 6.2 },
+    { days: 7, country: 'EUA', indicator: 'Consumer Sentiment (UoM)', impact: 'MEDIUM', forecast: 68, previous: 67.9 },
+  ]
+
+  for (const e of calendarEvents) {
+    const date = new Date(calStart)
+    date.setDate(date.getDate() + e.days)
+    await prisma.economicEvent.upsert({
+      where: { id: `cal-${e.country}-${e.indicator.split(' ')[0]}-${e.days}` },
+      update: {},
+      create: {
+        id: `cal-${e.country}-${e.indicator.split(' ')[0]}-${e.days}`,
+        date,
+        time: '09:00',
+        country: e.country,
+        indicator: e.indicator,
+        impact: e.impact,
+        forecast: e.forecast,
+        previous: e.previous,
+        source: 'Bloomberg',
+      },
+    })
+  }
+
+  // FINANCEIRO / DEPÓSITOS (M19 - view-only)
+  const depositTemplates = [
+    { idx: 0, type: 'INITIAL_DEPOSIT', amount: 10000, dateOffset: 120 },
+    { idx: 0, type: 'REPEAT_DEPOSIT', amount: 2500, dateOffset: 30 },
+    { idx: 1, type: 'INITIAL_DEPOSIT', amount: 15000, dateOffset: 90 },
+    { idx: 1, type: 'REPEAT_DEPOSIT', amount: 3000, dateOffset: 15 },
+    { idx: 2, type: 'INITIAL_DEPOSIT', amount: 8000, dateOffset: 200 },
+    { idx: 3, type: 'INITIAL_DEPOSIT', amount: 5000, dateOffset: 60 },
+    { idx: 3, type: 'REPEAT_DEPOSIT', amount: 1000, dateOffset: 7 },
+    { idx: 4, type: 'INITIAL_DEPOSIT', amount: 20000, dateOffset: 150 },
+    { idx: 4, type: 'FTD', amount: 20000, dateOffset: 149 },
+    { idx: 2, type: 'WITHDRAWAL', amount: -1000, dateOffset: 10 },
+  ]
+
+  for (const d of depositTemplates) {
+    const client = clientRecords[d.idx]
+    if (!client) continue
+    await prisma.financialEvent.create({
+      data: {
+        clientId: client.id,
+        type: d.type,
+        amount: d.amount,
+        currency: 'USD',
+        date: new Date(Date.now() - d.dateOffset * 86400000),
+        meta: { source: 'seed' },
+      },
+    })
+  }
+
+  // NOTIFICAÇÕES (M22)
+  const notifTemplates = [
+    { type: 'TASK', title: 'Tarefa vence hoje: ' + taskTemplates[0].title, body: 'Não esqueça do follow-up de hoje.' },
+    { type: 'ALERT', title: 'Alerta disparado: BTC', body: 'Bitcoin caiu abaixo do limite configurado.' },
+    { type: 'CLIENT', title: 'Cliente em risco: Ricardo Fernandes', body: 'Score de churn elevado. Priorizar contato.' },
+    { type: 'NEWS', title: 'Notícia relevante no setor de AI', body: 'AMD lançou novo chip para competir com NVIDIA.' },
+  ]
+
+  for (const n of notifTemplates) {
+    const notifId = `notif-${admin.id}-${n.type.toLowerCase()}`
+    await prisma.notification.upsert({
+      where: { id: notifId },
+      update: {},
+      create: {
+        id: notifId,
+        userId: admin.id,
+        type: n.type,
+        title: n.title,
+        body: n.body,
+        readAt: n.type === 'TASK' ? null : null,
+      },
+    })
+  }
+
+  // INTEGRAÇÕES (M23)
+  const integrationTemplates = [
+    { provider: 'Bloomberg', type: 'MARKET_DATA', status: 'ACTIVE', plan: 'Enterprise' },
+    { provider: 'Refinitiv', type: 'FUNDAMENTALS', status: 'ACTIVE', plan: 'Standard' },
+    { provider: 'Coindesk', type: 'CRYPTO', status: 'ACTIVE', plan: 'Free' },
+    { provider: 'ForexFactory', type: 'CALENDAR', status: 'ACTIVE', plan: 'Free' },
+    { provider: 'MetaTrader', type: 'TRADING', status: 'PENDING', plan: '' },
+  ]
+
+  for (const i of integrationTemplates) {
+    await prisma.integrationConfig.upsert({
+      where: { provider_type: { provider: i.provider, type: i.type } },
+      update: {},
+      create: {
+        provider: i.provider,
+        type: i.type,
+        status: i.status,
+        plan: i.plan || undefined,
+        config: { seededAt: new Date().toISOString() },
+        lastSyncAt: new Date(),
+      },
+    })
+    await prisma.integrationHealth.upsert({
+      where: { id: `health-${i.provider.toLowerCase()}` },
+      update: {},
+      create: {
+        id: `health-${i.provider.toLowerCase()}`,
+        provider: i.provider,
+        type: i.type,
+        status: i.status === 'ACTIVE' ? 'UP' : 'UNKNOWN',
+        latencyMs: Math.floor(50 + Math.random() * 200),
+      },
+    })
+  }
+
+  // AI (M20) - histórico de exemplo
+  await prisma.aiRequest.upsert({
+    where: { id: 'ai-sample' },
+    update: {},
+    create: {
+      id: 'ai-sample',
+      userId: julio.id,
+      type: 'briefing:platform',
+      question: 'Gerar briefing diário da plataforma',
+      input: { features: ['market', 'retention'] },
+      output: { sections: ['## Visão Geral\nExemplo de briefing diário.', '## Destaques\nDados do MVP.'] },
+      model: 'template',
+    },
+  })
 
   console.log('Seed completo!')
 }

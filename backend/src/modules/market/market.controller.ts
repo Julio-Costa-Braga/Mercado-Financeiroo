@@ -251,6 +251,43 @@ export async function getSectors(req: Request, res: Response, next: NextFunction
   }
 }
 
+export async function getSectorsPerformance(req: Request, res: Response, next: NextFunction) {
+  try {
+    const assets = await prisma.asset.findMany({
+      where: { sector: { not: null }, type: 'STOCK' },
+      include: { quotes: { orderBy: { updatedAt: 'desc' }, take: 1 } },
+    })
+
+    const grouped = assets.reduce((acc, a) => {
+      const key = a.sector!
+      ;(acc[key] ||= { count: 0, avg1D: 0, gainers: 0, losers: 0, marketCap: 0n })
+      const group = acc[key]
+      const q = a.quotes[0]
+      group.count++
+      group.avg1D += q?.changePct1D ?? 0
+      if ((q?.changePct1D ?? 0) > 0) group.gainers++
+      if ((q?.changePct1D ?? 0) < 0) group.losers++
+      if (q?.marketCap) group.marketCap += q.marketCap
+      return acc
+    }, {} as Record<string, { count: number; avg1D: number; gainers: number; losers: number; marketCap: bigint }>)
+
+    const sectors = Object.entries(grouped)
+      .map(([name, g]) => ({
+        name,
+        count: g.count,
+        avgChangePct: +(g.avg1D / g.count).toFixed(2),
+        gainers: g.gainers,
+        losers: g.losers,
+        marketCap: g.marketCap.toString(),
+      }))
+      .sort((a, b) => b.avgChangePct - a.avgChangePct)
+
+    res.json({ sectors })
+  } catch (err) {
+    next(err)
+  }
+}
+
 export async function getGainersLosers(req: Request, res: Response, next: NextFunction) {
   try {
     const quotes = await prisma.quote.findMany({
