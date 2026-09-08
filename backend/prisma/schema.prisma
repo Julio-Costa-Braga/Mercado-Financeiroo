@@ -1,0 +1,663 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============ IDENTITY ============
+
+model User {
+  id            String       @id @default(uuid())
+  email         String       @unique
+  passwordHash  String
+  name          String
+  role          Role         @default(RETENTION)
+  team          String?
+  status        UserStatus   @default(ACTIVE)
+  timezone      String?      @default("UTC")
+  locale        String?      @default("pt-PT")
+  currency      String?      @default("USD")
+  mfaEnabled    Boolean      @default(false)
+  mfaSecret     String?
+  lastLoginAt   DateTime?
+  loginAttempts Int          @default(0)
+  lockedUntil   DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  sessions          Session[]
+  mfaMethods        MfaMethod[]
+  passwordResetTokens PasswordResetToken[]
+  auditLogs         AuditLog[]
+  clients           Client[]       @relation("ClientOwner")
+  tasks             Task[]         @relation("TaskOwner")
+  watchlists        Watchlist[]
+  alerts            Alert[]
+  notifications     Notification[]
+  clientContacts    ClientContact[]
+  clientNotes       ClientNote[]
+  aiRequests        AiRequest[]
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  RETENTION
+  SALES
+  RESEARCH
+  COMPLIANCE
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  BLOCKED
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token        String   @unique
+  ip           String?
+  userAgent    String?
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+}
+
+model MfaMethod {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   @default("TOTP")
+  secret    String
+  verified  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// ============ PERMISSIONS ============
+
+model Permission {
+  id        String       @id @default(uuid())
+  name      String       @unique
+  role      Role
+  createdAt DateTime     @default(now())
+}
+
+// ============ CRM ============
+
+model Client {
+  id            String          @id @default(uuid())
+  name          String
+  email         String?
+  phone         String?
+  country       String?
+  status        ClientStatus    @default(ACTIVE)
+  churnRisk     Int             @default(0)
+  priorityScore Int             @default(0)
+  ownerId       String?
+  owner         User?           @relation("ClientOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  experience    String?
+  objective     String?
+  lastContactAt DateTime?
+  lastLoginAt   DateTime?
+  lastInteractionAt DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  interests       ClientInterest[]
+  tags            ClientTag[]
+  notes           ClientNote[]
+  contacts        ClientContact[]
+  events          ClientEvent[]
+  watchlists      Watchlist[]
+  alerts          Alert[]
+  tasks           Task[]
+  retentionHistory RetentionStatusHistory[]
+  scores          RetentionScore[]
+  financialEvents FinancialEvent[]
+
+  @@index([ownerId])
+  @@index([status])
+  @@index([churnRisk])
+}
+
+enum ClientStatus {
+  ACTIVE
+  INACTIVE
+  PWM
+  AT_RISK
+  CHURNED
+}
+
+model ClientInterest {
+  id       String  @id @default(uuid())
+  clientId String
+  client   Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  interest String
+  weight   Int     @default(5)
+
+  @@index([clientId])
+}
+
+model ClientTag {
+  id       String  @id @default(uuid())
+  clientId String
+  client   Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  tag      String
+
+  @@index([clientId])
+}
+
+model ClientNote {
+  id        String   @id @default(uuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  authorId  String?
+  author    User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([clientId])
+}
+
+model ClientContact {
+  id        String   @id @default(uuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  contactAt DateTime @default(now())
+  type      String
+  notes     String?
+  via       String?
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+}
+
+model ClientEvent {
+  id        String   @id @default(uuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  type      String
+  date      DateTime @default(now())
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@index([clientId])
+  @@index([type])
+}
+
+// ============ RETENTION ============
+
+model RetentionScore {
+  id        String   @id @default(uuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  score     Int
+  breakdown Json?
+  createdAt DateTime @default(now())
+
+  @@index([clientId])
+}
+
+model RetentionStatusHistory {
+  id        String   @id @default(uuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  from      String?
+  to        String
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@index([clientId])
+}
+
+// ============ TASKS ============
+
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+model Task {
+  id          String     @id @default(uuid())
+  title       String
+  clientId    String?
+  client      Client?    @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  ownerId     String?
+  owner       User?      @relation("TaskOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  type        String
+  priority    String     @default("MEDIUM")
+  status      TaskStatus @default(OPEN)
+  dueAt       DateTime?
+  result      String?
+  notes       String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([ownerId])
+  @@index([clientId])
+  @@index([status])
+}
+
+// ============ MARKET ============
+
+enum AssetType {
+  STOCK
+  CRYPTO
+  FOREX
+  ETF
+  INDEX
+  COMMODITY
+}
+
+enum AssetStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model Asset {
+  id             String      @id @default(uuid())
+  ticker         String
+  name           String
+  type           AssetType
+  market         String?
+  country        String?
+  exchange       String?
+  sector         String?
+  industry       String?
+  currency       String       @default("USD")
+  status         AssetStatus @default(ACTIVE)
+  isin           String?
+  cik            String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  quotes          Quote[]
+  bars            Bar[]
+  fundamentals    Fundamental[]
+  earnings        EarningsEvent[]
+  sectorHistory   AssetSectorHistory[]
+  newsLinks       NewsAssetLink[]
+  watchlistAssets WatchlistAsset[]
+  alerts          Alert[]
+
+  @@unique([ticker, type])
+  @@index([type])
+  @@index([sector])
+}
+
+model Quote {
+  id           String   @id @default(uuid())
+  assetId      String
+  asset        Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  price        Float
+  bid          Float?
+  ask          Float?
+  open         Float?
+  high         Float?
+  low          Float?
+  prevClose    Float?
+  volume       BigInt?
+  marketCap    BigInt?
+  changePct1D  Float?
+  changePct5D  Float?
+  changePct30D Float?
+  updatedAt    DateTime @default(now())
+
+  @@index([assetId])
+  @@index([updatedAt])
+}
+
+model Bar {
+  id        String   @id @default(uuid())
+  assetId   String
+  asset     Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  interval  String
+  open      Float
+  high      Float
+  low       Float
+  close     Float
+  volume    BigInt?
+  timestamp DateTime
+
+  @@unique([assetId, interval, timestamp])
+  @@index([assetId, interval, timestamp])
+}
+
+model Fundamental {
+  id             String  @id @default(uuid())
+  assetId        String
+  asset          Asset   @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  marketCap      BigInt?
+  peRatio        Float?
+  psRatio        Float?
+  pbRatio        Float?
+  evEbitda       Float?
+  dividendYield  Float?
+  revenue        BigInt?
+  ebitda         BigInt?
+  netIncome      BigInt?
+  eps            Float?
+  roe            Float?
+  roa            Float?
+  debt           BigInt?
+  cash           BigInt?
+  aum            BigInt?
+  expenseRatio   Float?
+  updatedAt      DateTime @default(now())
+
+  @@index([assetId])
+}
+
+model EarningsEvent {
+  id              String   @id @default(uuid())
+  assetId         String
+  asset           Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  reportDate      DateTime
+  epsEstimate     Float?
+  epsActual       Float?
+  revenueEstimate BigInt?
+  revenueActual   BigInt?
+  createdAt       DateTime @default(now())
+
+  @@index([assetId])
+}
+
+model Sector {
+  id        String  @id @default(uuid())
+  name      String  @unique
+  parentId  String?
+  parent    Sector? @relation("SectorTree", fields: [parentId], references: [id])
+  children  Sector[] @relation("SectorTree")
+
+  assetSectorHistory AssetSectorHistory[]
+}
+
+model AssetSectorHistory {
+  id        String   @id @default(uuid())
+  assetId   String
+  asset     Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  sectorId  String
+  sector    Sector   @relation(fields: [sectorId], references: [id])
+  from      DateTime @default(now())
+  to        DateTime?
+
+  @@index([assetId])
+  @@index([sectorId])
+}
+
+// ============ NEWS ============
+
+model NewsArticle {
+  id        String   @id @default(uuid())
+  title     String
+  source    String?
+  url       String?
+  excerpt   String?
+  publishedAt DateTime @default(now())
+  sentiment Float?
+  impact    String?
+  region    String?
+  country   String?
+  sector    String?
+  createdAt DateTime @default(now())
+
+  assetLinks NewsAssetLink[]
+  notifications Notification[]
+}
+
+model NewsAssetLink {
+  id          String   @id @default(uuid())
+  newsId      String
+  news        NewsArticle @relation(fields: [newsId], references: [id], onDelete: Cascade)
+  assetId     String
+  asset       Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  relevance   Float?
+
+  @@unique([newsId, assetId])
+  @@index([assetId])
+}
+
+// ============ WATCHLIST ============
+
+model Watchlist {
+  id          String   @id @default(uuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientId    String?
+  client      Client?  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name        String   @default("Watchlist")
+  isGlobal    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  assets WatchlistAsset[]
+}
+
+model WatchlistAsset {
+  id          String   @id @default(uuid())
+  watchlistId String
+  watchlist   Watchlist @relation(fields: [watchlistId], references: [id], onDelete: Cascade)
+  assetId     String
+  asset       Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  order       Int      @default(0)
+  groupName   String?
+  addedAt     DateTime @default(now())
+
+  @@unique([watchlistId, assetId])
+}
+
+// ============ ALERTS ============
+
+enum AlertType {
+  MARKET
+  PRICE
+  VOLUME
+  CLIENT
+  WITHDRAWAL
+}
+
+enum AlertStatus {
+  ACTIVE
+  TRIGGERED
+  DISABLED
+}
+
+model Alert {
+  id          String      @id @default(uuid())
+  userId      String?
+  user        User?       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientId    String?
+  client      Client?     @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  assetId     String?
+  asset       Asset?      @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  type        AlertType
+  condition   String
+  threshold   Float?
+  status      AlertStatus @default(ACTIVE)
+  triggeredAt DateTime?
+  deliveries  AlertDelivery[]
+  createdAt   DateTime    @default(now())
+
+  @@index([userId])
+  @@index([assetId])
+  @@index([status])
+}
+
+model AlertDelivery {
+  id        String   @id @default(uuid())
+  alertId   String
+  alert     Alert    @relation(fields: [alertId], references: [id], onDelete: Cascade)
+  channel   String   @default("IN_APP")
+  deliveredAt DateTime @default(now())
+  readAt    DateTime?
+}
+
+// ============ FINANCIAL (MVP: view-only) ============
+
+model FinancialEvent {
+  id          String   @id @default(uuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  type        String
+  amount      Float
+  currency    String   @default("USD")
+  date        DateTime @default(now())
+  meta        Json?
+
+  @@index([clientId])
+}
+
+// ============ NOTIFICATIONS ============
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  title     String
+  body      String?
+  newsId    String?
+  news      NewsArticle? @relation(fields: [newsId], references: [id], onDelete: SetNull)
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([readAt])
+}
+
+// ============ MACRO ============
+
+model EconomicIndicator {
+  id          String  @id @default(uuid())
+  code        String  @unique
+  name        String
+  country     String
+  region      String
+  frequency   String
+  unit        String?
+  description String?
+
+  observations EconomicObservation[]
+}
+
+model EconomicObservation {
+  id          String            @id @default(uuid())
+  indicatorId String
+  indicator   EconomicIndicator @relation(fields: [indicatorId], references: [id], onDelete: Cascade)
+  value       Float
+  period      DateTime
+  previous    Float?
+  source      String?
+  createdAt   DateTime          @default(now())
+
+  @@unique([indicatorId, period])
+  @@index([indicatorId])
+}
+
+model EconomicEvent {
+  id        String   @id @default(uuid())
+  date      DateTime
+  time      String?
+  country   String
+  indicator String
+  impact    String   @default("MEDIUM")
+  forecast  Float?
+  previous  Float?
+  actual    Float?
+  source    String?
+  createdAt DateTime @default(now())
+
+  @@index([date])
+  @@index([country])
+  @@index([impact])
+}
+
+// ============ AI ============
+
+model AiRequest {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  question  String?
+  input     Json?
+  output    Json?
+  model     String?
+  latencyMs Int?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// ============ AUDIT ============
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  entity    String?
+  entityId  String?
+  before    Json?
+  after     Json?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// ============ INTEGRATIONS / HEALTH ============
+
+model IntegrationConfig {
+  id        String   @id @default(uuid())
+  provider  String
+  type      String
+  status    String   @default("ACTIVE")
+  plan      String?
+  config    Json?
+  lastSyncAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([provider, type])
+}
+
+model IntegrationHealth {
+  id        String   @id @default(uuid())
+  provider  String
+  type      String
+  status    String
+  latencyMs Int?
+  lastCheckAt DateTime @default(now())
+
+  @@index([provider])
+}
