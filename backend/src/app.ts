@@ -12,9 +12,24 @@ import { setupSocket } from './config/socket'
 const app = express()
 const server = http.createServer(app)
 
+const DEFAULT_ORIGINS = [
+  'http://localhost:3000',
+  'https://mercado-financeiroo.onrender.com',
+  'https://mercado-financeiroo.vercel.app',
+  'https://mercado-financeiro.vercel.app',
+]
+
+function getAllowedOrigins(): string[] {
+  const fromEnv = (process.env.CORS_ORIGINS || '')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean)
+  return Array.from(new Set([...fromEnv, ...DEFAULT_ORIGINS]))
+}
+
 // Socket.io setup
 export const io = new Server(server, {
-  cors: { origin: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000'] },
+  cors: { origin: getAllowedOrigins() },
 })
 setupSocket(io)
 
@@ -22,7 +37,7 @@ setupSocket(io)
 app.use(helmet())
 app.use(
   cors({
-    origin: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000'],
+    origin: getAllowedOrigins(),
     credentials: true,
   })
 )
