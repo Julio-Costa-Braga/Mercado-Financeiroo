@@ -20,15 +20,38 @@ const NAV = [
       { href: '/market/stocks', label: 'Ações' },
       { href: '/market/crypto', label: 'Crypto' },
       { href: '/market/forex', label: 'Forex' },
+      { href: '/market/etfs', label: 'ETFs' },
+      { href: '/market/indices', label: 'Índices' },
     ],
   },
-  { href: '/research', label: 'Research', icon: '🔎' },
+  {
+    href: '/research', label: 'Research', icon: '🔎',
+    children: [
+      { href: '/research', label: 'Overview' },
+      { href: '/research/sectors', label: 'Setores' },
+      { href: '/research/compare', label: 'Comparador' },
+    ],
+  },
   { href: '/news', label: 'Notícias', icon: '📰' },
+  { href: '/macro', label: 'Macroeconomia', icon: '🌍' },
+  { href: '/calendar', label: 'Calendário Econ.', icon: '🗓️' },
   { href: '/clients', label: 'Clientes', icon: '👥' },
   { href: '/retention', label: 'Retention', icon: '🎯' },
+  { href: '/deposits', label: 'Depósitos', icon: '💸' },
   { href: '/watchlist', label: 'Watchlist', icon: '⭐' },
   { href: '/alerts', label: 'Alertas', icon: '🔔' },
   { href: '/tasks', label: 'Tarefas', icon: '✅' },
+  { href: '/reports', label: 'KPIs & Relatórios', icon: '📈' },
+  { href: '/assistant', label: 'Assistente IA', icon: '🤖' },
+]
+
+
+const NAV_BOTTOM = [
+  { href: '/notifications', label: 'Notificações', icon: '🔔' },
+  { href: '/integrations', label: 'Integrações', icon: '🔌' },
+  { href: '/admin', label: 'Administração', icon: '⚙️' },
+  { href: '/audit', label: 'Auditoria', icon: '🛡️' },
+  { href: '/health', label: 'Observabilidade', icon: '💚' },
 ]
 
 export function Sidebar() {
@@ -101,6 +124,22 @@ export function Sidebar() {
       </nav>
 
       <div className="p-4 border-t border-market-border">
+        <div className="border-b border-market-border pb-2 mb-2">
+          {NAV_BOTTOM.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs mb-0.5 ${
+                pathname === item.href
+                  ? 'text-market-accent bg-market-accent/10'
+                  : 'text-gray-500 hover:text-white'
+              }`}
+            >
+              <span>{item.icon}</span>
+              {item.label}
+            </Link>
+          ))}
+        </div>
         {user && (
           <div className="mb-2">
             <p className="text-sm font-medium text-gray-200">{user.name}</p>
