@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { disconnectSocket } from '@/lib/socket'
+import { useI18n } from '@/lib/i18n'
+import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 
 interface User {
   id: string
@@ -12,52 +14,52 @@ interface User {
   role: string
 }
 
-const NAV = [
-  { href: '/dashboard', label: 'Dashboard', icon: '🏠' },
-  {
-    href: '/market', label: 'Markets', icon: '📊',
-    children: [
-      { href: '/market/stocks', label: 'Ações' },
-      { href: '/market/crypto', label: 'Crypto' },
-      { href: '/market/forex', label: 'Forex' },
-      { href: '/market/etfs', label: 'ETFs' },
-      { href: '/market/indices', label: 'Índices' },
-    ],
-  },
-  {
-    href: '/research', label: 'Research', icon: '🔎',
-    children: [
-      { href: '/research', label: 'Overview' },
-      { href: '/research/sectors', label: 'Setores' },
-      { href: '/research/compare', label: 'Comparador' },
-    ],
-  },
-  { href: '/news', label: 'Notícias', icon: '📰' },
-  { href: '/macro', label: 'Macroeconomia', icon: '🌍' },
-  { href: '/calendar', label: 'Calendário Econ.', icon: '🗓️' },
-  { href: '/clients', label: 'Clientes', icon: '👥' },
-  { href: '/retention', label: 'Retention', icon: '🎯' },
-  { href: '/deposits', label: 'Depósitos', icon: '💸' },
-  { href: '/watchlist', label: 'Watchlist', icon: '⭐' },
-  { href: '/alerts', label: 'Alertas', icon: '🔔' },
-  { href: '/tasks', label: 'Tarefas', icon: '✅' },
-  { href: '/reports', label: 'KPIs & Relatórios', icon: '📈' },
-  { href: '/assistant', label: 'Assistente IA', icon: '🤖' },
-]
-
-
-const NAV_BOTTOM = [
-  { href: '/notifications', label: 'Notificações', icon: '🔔' },
-  { href: '/integrations', label: 'Integrações', icon: '🔌' },
-  { href: '/admin', label: 'Administração', icon: '⚙️' },
-  { href: '/audit', label: 'Auditoria', icon: '🛡️' },
-  { href: '/health', label: 'Observabilidade', icon: '💚' },
-]
-
 export function Sidebar() {
   const router = useRouter()
   const pathname = usePathname()
+  const { t } = useI18n()
   const [user, setUser] = useState<User | null>(null)
+
+  const NAV = [
+    { href: '/dashboard', label: t('nav.dashboard'), icon: '🏠' },
+    {
+      href: '/market', label: t('nav.markets'), icon: '📊',
+      children: [
+        { href: '/market/stocks', label: t('nav.stocks') },
+        { href: '/market/crypto', label: t('nav.crypto') },
+        { href: '/market/forex', label: t('nav.forex') },
+        { href: '/market/etfs', label: t('nav.etfs') },
+        { href: '/market/indices', label: t('nav.indices') },
+      ],
+    },
+    {
+      href: '/research', label: t('nav.research'), icon: '🔎',
+      children: [
+        { href: '/research', label: t('nav.overview') },
+        { href: '/research/sectors', label: t('nav.sectors') },
+        { href: '/research/compare', label: t('nav.compare') },
+      ],
+    },
+    { href: '/news', label: t('nav.news'), icon: '📰' },
+    { href: '/macro', label: t('nav.macro'), icon: '🌍' },
+    { href: '/calendar', label: t('nav.calendar'), icon: '🗓️' },
+    { href: '/clients', label: t('nav.clients'), icon: '👥' },
+    { href: '/retention', label: t('nav.retention'), icon: '🎯' },
+    { href: '/deposits', label: t('nav.deposits'), icon: '💸' },
+    { href: '/watchlist', label: t('nav.watchlist'), icon: '⭐' },
+    { href: '/alerts', label: t('nav.alerts'), icon: '🔔' },
+    { href: '/tasks', label: t('nav.tasks'), icon: '✅' },
+    { href: '/reports', label: t('nav.reports'), icon: '📈' },
+    { href: '/assistant', label: t('nav.assistant'), icon: '🤖' },
+  ]
+
+  const NAV_BOTTOM = [
+    { href: '/notifications', label: t('nav.notifications'), icon: '🔔' },
+    { href: '/integrations', label: t('nav.integrations'), icon: '🔌' },
+    { href: '/admin', label: t('nav.admin'), icon: '⚙️' },
+    { href: '/audit', label: t('nav.audit'), icon: '🛡️' },
+    { href: '/health', label: t('nav.health'), icon: '💚' },
+  ]
 
   const loadUser = useCallback(async () => {
     try {
@@ -85,7 +87,7 @@ export function Sidebar() {
     <aside className="w-60 bg-market-card border-r border-market-border flex flex-col h-screen sticky top-0">
       <div className="p-4 border-b border-market-border">
         <Link href="/dashboard" className="text-lg font-bold text-white">Market Now</Link>
-        <p className="text-xs text-gray-500 mt-0.5">Plataforma de Mercado</p>
+        <p className="text-xs text-gray-500 mt-0.5">{t('nav.platform')}</p>
       </div>
 
       <nav className="flex-1 overflow-y-auto p-2">
@@ -150,8 +152,11 @@ export function Sidebar() {
           onClick={handleLogout}
           className="w-full text-left text-xs text-market-down hover:opacity-80"
         >
-          Sair
+          {t('nav.logout')}
         </button>
+      </div>
+      <div className="p-3 pt-0">
+        <LanguageSwitcher compact />
       </div>
     </aside>
   )
