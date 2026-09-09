@@ -202,7 +202,7 @@ export async function getBars(req: Request, res: Response, next: NextFunction) {
     const { assetId, interval = '1D', range = '100' } = req.query as any
     let assetIdResolved = String(assetId ?? '')
     if (!assetIdResolved && ticker) {
-      const byTicker = await prisma.asset.findUnique({ where: { ticker: ticker || '' } })
+      const byTicker = await prisma.asset.findFirst({ where: { ticker: ticker || '' } })
       assetIdResolved = byTicker?.id ?? ''
     }
     if (!assetIdResolved) throw Errors.badRequest('assetId ou ticker é obrigatório')
