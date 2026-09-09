@@ -96,7 +96,7 @@ async function buildTemplateAnswer(message: string): Promise<string> {
       'Renda fixa é a classe mais segura e adequada para reservas e prazos definidos:',
       '',
       '- Tesouro Direto (Selic, IPCA+, Prefixado): opção mais acessível e garantida pelo Tesouro Nacional;',
-      '- CDB: emissão de bancos, com garantia do FGC até R$ 250 mil por instituição;',
+      '- CDB: emissão de bancos, com garantia do FGC até US$ 250 mil por instituição;',
       '- LCI/LCA: isentas de IR para pessoa física, mas exigem prazos mínimos (90 dias+);',
       '- Poupança: muita liquidez, mas rende abaixo da inflação no longo prazo.',
       '',

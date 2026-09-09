@@ -70,10 +70,10 @@ export const ONBOARDING_QUESTIONS: OnboardingQuestion[] = [
     title: 'Qual o valor total que pretende investir (patrimonio investido)?',
     hint: 'Faixa de aporte',
     options: [
-      { value: 0, label: 'Ate R$ 10 mil' },
-      { value: 1, label: 'R$ 10 mil a R$ 50 mil' },
-      { value: 2, label: 'R$ 50 mil a R$ 200 mil' },
-      { value: 3, label: 'Acima de R$ 200 mil' },
+      { value: 0, label: 'Ate US$ 10 mil' },
+      { value: 1, label: 'US$ 10 mil a US$ 50 mil' },
+      { value: 2, label: 'US$ 50 mil a US$ 200 mil' },
+      { value: 3, label: 'Acima de US$ 200 mil' },
     ],
   },
   {
