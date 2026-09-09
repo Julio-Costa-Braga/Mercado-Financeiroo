@@ -41,6 +41,11 @@ function wireDomainEvents(io: Server) {
         case EventTopics.FINANCIAL_EVENT_CREATED:
           io.emit('financial:event', payload)
           break
+        case EventTopics.NOTIFICATION_CREATED: {
+          const userId = payload.userId as string
+          if (userId) io.to(`user:${userId}`).emit('notification:new', payload)
+          break
+        }
       }
     })
   }

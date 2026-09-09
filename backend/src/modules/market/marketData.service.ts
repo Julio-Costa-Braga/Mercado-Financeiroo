@@ -1,16 +1,18 @@
 import { prisma } from '../../config/prisma'
 import { logger } from '../../config/logger'
 import { dispatch, EventTopics } from '../../config/events'
+import { loadActiveAlerts, evaluateAlerts } from '../alerts/alertEngine'
 
 // M22 - Feed de mercado
 // Atualiza as cotacoes em intervalos regulares (padrao 10 minutos).
 // Estrategia de fontes (sem chave):
-//   CRYPTO -> CoinGecko (batch) -> Coinbase (spot) -> Yahoo (BTC-USD) -> simulacao
+//   CRYPTO -> CoinGecko (batch) -> Yahoo (BTC-USD) -> Coinbase -> Binance -> simulacao
 //   STOCK / ETF / INDEX -> Yahoo Finance (com User-Agent) -> simulacao
 //   FOREX -> Yahoo Finance (EURUSD=X) -> simulacao
 // A simulacao so roda como ultimo recurso e E ANCORADA no ultimo preco real
 // obtido (em memoria), com variacao diaria preservada - assim nunca diverge
 // muito da realidade quando um provider alguna falha.
+// A cada ciclo tambem avalia alertas ativos e gera notificacoes em tempo real.
 
 const DEFAULT_INTERVAL_MS = 10 * 60 * 1000
 
@@ -194,6 +196,7 @@ const EXT_CACHE = new Map<string, { price: number; changePct1D: number | null }>
 export async function updateMarketQuotes(): Promise<{ updated: number; simulated: number; external: number }> {
   const assets = await prisma.asset.findMany({ where: { status: 'ACTIVE' } })
   const coinMap = await fetchCoinGecko()
+  const activeByAsset = await loadActiveAlerts()
   let updated = 0
   let simulated = 0
   let external = 0
@@ -307,6 +310,14 @@ export async function updateMarketQuotes(): Promise<{ updated: number; simulated
           updatedAt: data.updatedAt,
         },
       })
+
+      // Avalia alertas ativos deste ativo e dispara notificacoes em tempo real
+      await evaluateAlerts(
+        asset.id,
+        asset.ticker,
+        { price, changePct1D, volume },
+        activeByAsset,
+      )
     } catch (err: any) {
       logger.warn(`Market update falhou para ${asset.ticker}: ${err.message}`)
     }

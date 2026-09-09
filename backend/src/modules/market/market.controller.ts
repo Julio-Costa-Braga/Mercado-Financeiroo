@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express'
 import { prisma } from '../../config/prisma'
 import { Errors } from '../../utils/errors'
+import { fetchRealBars } from './history.service'
 
 const ASSET_SELECT = {
   id: true,
@@ -200,8 +201,14 @@ export async function getBars(req: Request, res: Response, next: NextFunction) {
     const { assetId, interval = '1D', range = '100' } = req.query as any
     if (!assetId) throw Errors.badRequest('assetId é obrigatório')
 
+    // Tenta dados historicos REAIS (Yahoo Finance); se falhar, usa o cache/seed
+    const asset = await prisma.asset.findUnique({ where: { id: String(assetId) } })
+    if (asset) {
+      await fetchRealBars({ id: asset.id, ticker: asset.ticker, type: asset.type }, String(interval))
+    }
+
     const bars = await prisma.bar.findMany({
-      where: { assetId, interval },
+      where: { assetId, interval: String(interval) },
       orderBy: { timestamp: 'desc' },
       take: Math.min(1000, parseInt(range) || 100),
     })

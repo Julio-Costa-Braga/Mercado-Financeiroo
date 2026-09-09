@@ -81,7 +81,7 @@ export async function getHealthDashboard(_req: Request, res: Response, next: Nex
     }
 
     // AI (sem key configurada -> degradado)
-    const aiEnabled = !!process.env.OPENAI_API_KEY
+    const aiEnabled = !!(process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY)
     checks.push({ name: 'AI', status: aiEnabled ? 'up' : 'degraded', detail: aiEnabled ? 'chave configurada' : 'chave não configurada (modo template)' })
 
     // Queue size / failed jobs

@@ -15,6 +15,7 @@ export const EventTopics = {
   CLIENT_UPDATED: 'client.updated',
   TASK_CREATED: 'task.created',
   FINANCIAL_EVENT_CREATED: 'financial.event.created',
+  NOTIFICATION_CREATED: 'notification.created',
 } as const
 
 export type DomainEvent = {

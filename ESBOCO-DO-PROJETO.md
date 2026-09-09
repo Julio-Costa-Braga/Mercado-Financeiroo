@@ -96,9 +96,21 @@ validação `zod` nos controllers, CORS explícito, eventos de domínio no backe
 - `GET /`, `POST /`, `PUT /:id`, `GET /health` — cadastro de provedores
   (Ex.: Alpha Vantage / Twain / etc.).
 
-### ai — Inteligência artificial
-- `POST /briefing` — resumo/relatório gerado por IA (vários escopos/tempo).
-- `GET /requests` — histórico de solicitações.
+### ai — Inteligência artificial (IA gratuita via Groq)
+- `GET /briefing` — resumo/relatório gerado por IA (escopos: plataforma, ativo,
+  cliente, setor, notícias). Sem chave de IA, usa templates com dados reais.
+- `GET /questions` + `POST /onboarding` — questionário de perfil (8 perguntas)
+  que calcula `RiskProfile` (Conservador/Moderado/Arrojado) e `ClientType`.
+- `GET /tips` — dicas de investimento (momentum, fundamentos, dividendos,
+  setores, eventos, carteira sugerida).
+- `GET /clients/:clientId/sketch` — esboço automático do cliente (persistido
+  como nota `[IA] Esboco do cliente`).
+- `POST /chat` — chat com IA para tirar dúvidas e pedir "palpites" de subida/
+  queda. Contexto = snapshot real do mercado (BTC/ETH/gainers/losers).
+- `GET /requests` — histórico de solicitações de IA.
+- **Provider:** Groq (plano gratuito, `llama-3.3-70b` → hoje `openai/gpt-oss-120b`)
+  via `GROQ_API_KEY`; OpenAI continua como opção (`OPENAI_API_KEY`). Sem chave,
+  opera em modo template (regras + dados reais da plataforma).
 
 ### health — Observabilidade
 - `GET /overview` — status de API, banco, cache e dependências (liveness).
@@ -162,16 +174,24 @@ popula ativos/cotações/setores/notícias/clientes.
 
 ## 5. Como os dados são atualizados
 
-- **Hoje (MVP):** o banco é **pré-populado por seed**. Não há scheduler/cron
-  buscando cotações externas em produção. Os preços exibidos vêm das tabelas
-  `Quote`/`Bar` (estáticas no momento).
-- **Tempo real (atual):** o Socket.IO está configurado e pronto para emitir
-  `market:quotes`, `news:received`, `alert:triggered`, `task:created`, etc.,
-  mas só transmite quando o backend emite eventos no barramento de domínio.
-- **Futuro (recomendado):** conectar uma fonte de dados (Alpha Vantage/Finnhub)
-  e um **cron/scheduler** (ex.: `node-cron` no Render, ou worker BullMQ)
-  atualizando `Quote`/`Bar` a cada 1–15 min por classe de ativo, disparando
-  `QUOTE_UPDATED` → Socket.IO. Este é o único passo que torna os preços "vivos".
+- **Preços ao vivo (atual):** o backend roda um **scheduler** (`marketData.ts`)
+  que atualiza as cotações a cada **10 minutos** (configurável via
+  `MARKET_UPDATE_INTERVAL_MS`, mínimo 60 s), emitindo `QUOTE_UPDATED` via
+  Socket.IO. Fontes externas sem chave:
+  - **Cripto:** CoinGecko (batch) → Yahoo Finance (`BTC-USD`) → Coinbase →
+    Binance → simulação ancorada.
+  - **Ações/ETF/índice/forex:** Yahoo Finance (com `User-Agent`), com fallback
+    de simulação **ancorada no último preço real** (nunca diverge muito).
+- **Histórico (barras):** `GET /:ticker/bars` busca velas OHLCV **reais** do
+  Yahoo Finance e cacheia no banco (tabela `Bar`) — 1D (5 min), 5D, 1M, 3M, 6M,
+  1Y e 5Y.
+- **Alertas em tempo real:** motor de alertas (`alerts/alertEngine.ts`) avalia
+  condições de preço/variação/volume a cada ciclo e dispara **notificação
+  in-app + evento `alert:triggered`/`notification:new`** via Socket.IO.
+- **Notificações:** `createNotification()` emite `notification:new` no socket da
+  sala do usuário; o frontend exibe toast/contador em tempo real.
+- Toda a plataforma trabalha em **dólar (USD)**.
+- **Futuro:** Alpha Vantage/Finnhub, fila BullMQ, push/email.
 
 ---
 
@@ -181,6 +201,10 @@ popula ativos/cotações/setores/notícias/clientes.
   - Root `backend/`, build `npm install && npx prisma generate && npm run build`,
     start `node dist/server.js`, health `/health`.
   - Env: `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `CORS_ORIGINS`.
+  - Env IA gratuita: `GROQ_API_KEY` (chave do plano gratuito) e, opcional,
+    `GROQ_MODEL` (padrão `openai/gpt-oss-120b`). `OPENAI_API_KEY` continua
+    suportada como alternativa.
+  - Env feed: `MARKET_UPDATE_INTERVAL_MS` (padrão 10 min).
 - **Frontend — Vercel** (`mercado-financeiroo.vercel.app`)
   - Importar repositório, Root `frontend/`, Framework Next.js.
   - Env: `NEXT_PUBLIC_API_URL` (API Render), `NEXT_PUBLIC_WS_URL` (WebSocket).
@@ -196,5 +220,8 @@ popula ativos/cotações/setores/notícias/clientes.
 | Autenticação, MFA, auditoria, CORS, vulnerabilidades (0 em produção) | ✅ Concluído |
 | Login 2026 (layout + i18n PT/EN/ES) + fix web-vitals (Next 14.2.35) | ✅ Concluído |
 | Deploy Render + Vercel | ✅ Concluído |
-| Dados reais de mercado (fonte externa + scheduler) | ⏳ Próximo |
+| Dados reais de mercado (fonte externa + scheduler 10 min) | ✅ Concluído |
+| IA gratuita via Groq (chat, dicas, briefings, esboço, onboarding) | ✅ Concluído |
+| Histórico real de velas (Yahoo) para gráficos | ✅ Concluído |
+| Notificações/alertas em tempo real (Socket.IO) | ✅ Concluído |
 | Tradução integral das demais telas do app | ⏳ Expansível |

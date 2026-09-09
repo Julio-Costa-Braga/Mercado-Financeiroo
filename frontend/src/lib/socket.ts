@@ -8,6 +8,7 @@ export function getSocket(): Socket | null {
 }
 
 export function connectSocket(): Socket {
+  if (socket?.connected) return socket
   const token = localStorage.getItem('accessToken')
   const url = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:4000'
 

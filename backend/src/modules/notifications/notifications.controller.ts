@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express'
 import { prisma } from '../../config/prisma'
+import { dispatch, EventTopics } from '../../config/events'
 
 // M22 - Notificações (In-App no MVP; Web Push/Email depois)
 
@@ -61,5 +62,15 @@ export async function createNotification(
   title: string,
   body?: string
 ) {
-  return prisma.notification.create({ data: { userId, type, title, body } })
+  const notification = await prisma.notification.create({ data: { userId, type, title, body } })
+  // Notificação em tempo real via socket
+  dispatch(EventTopics.NOTIFICATION_CREATED, {
+    userId,
+    id: notification.id,
+    type: notification.type,
+    title: notification.title,
+    body: notification.body,
+    createdAt: notification.createdAt,
+  })
+  return notification
 }

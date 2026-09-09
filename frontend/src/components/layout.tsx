@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
-import { disconnectSocket } from '@/lib/socket'
+import { connectSocket, getSocket, disconnectSocket } from '@/lib/socket'
 import { useI18n } from '@/lib/i18n'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 
@@ -143,12 +143,46 @@ function SidebarItem({ item, pathname }: { item: NavItem; pathname: string }) {
 
 function Topbar({ pathname }: { pathname: string }) {
   const { t, locale } = useI18n()
+  const router = useRouter()
   const [now, setNow] = useState(new Date())
+  const [unread, setUnread] = useState(0)
+  const [toast, setToast] = useState<string | null>(null)
   const title = usePageTitle(pathname)
 
   useEffect(() => {
     const int = setInterval(() => setNow(new Date()), 1000)
     return () => clearInterval(int)
+  }, [])
+
+  // Notificações em tempo real (badge + toast)
+  useEffect(() => {
+    if (!api.getToken()) return
+    connectSocket()
+    const socket = getSocket()
+    if (!socket) return
+
+    const refresh = async () => {
+      try {
+        const d = await api.get<{ unreadCount: number }>('/notifications?unread=true')
+        setUnread(d.unreadCount)
+      } catch {}
+    }
+    refresh()
+
+    socket.on('notification:new', (p: any) => {
+      setUnread((u) => u + 1)
+      if (p?.title) setToast(p.body ? `${p.title} — ${p.body}` : p.title)
+    })
+    socket.on('alert:triggered', (p: any) => {
+      if (p?.asset) setToast(`Alerta: ${p.asset} disparado`)
+    })
+
+    const hide = setTimeout(() => setToast(null), 6000)
+    return () => {
+      socket.off('notification:new')
+      socket.off('alert:triggered')
+      clearTimeout(hide)
+    }
   }, [])
 
   return (
@@ -165,8 +199,26 @@ function Topbar({ pathname }: { pathname: string }) {
       <div className="flex items-center gap-3 shrink-0">
         <span className="text-xs text-gray-400 tabular-nums font-mono">{formatClockStr(now, locale)}</span>
         <div className="w-px h-4 bg-market-border" />
+        <button onClick={() => router.push('/notifications')} className="relative text-gray-400 hover:text-white transition-colors" aria-label="Notificações">
+          <Icon d={ICONS.notifications} className="w-5 h-5" />
+          {unread > 0 && (
+            <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-4 h-4 px-1 rounded-full bg-market-down text-[10px] font-bold text-white">
+              {unread > 99 ? '99+' : unread}
+            </span>
+          )}
+        </button>
+        <div className="w-px h-4 bg-market-border" />
         <LanguageSwitcher compact />
       </div>
+      {toast && (
+        <div className="fixed top-16 right-6 z-50 max-w-sm rounded-xl border border-market-accent/30 bg-market-card/95 backdrop-blur-xl shadow-2xl shadow-black/40 px-4 py-3 text-sm text-gray-200 animate-[fadein_0.2s_ease]">
+          <div className="flex items-start gap-2">
+            <span className="shrink-0 w-2 h-2 mt-1.5 rounded-full bg-market-accent shadow-[0_0_6px_rgba(59,130,246,0.8)]" />
+            <div className="min-w-0 break-words">{toast}</div>
+            <button onClick={() => setToast(null)} className="shrink-0 text-gray-500 hover:text-white">✕</button>
+          </div>
+        </div>
+      )}
     </header>
   )
 }

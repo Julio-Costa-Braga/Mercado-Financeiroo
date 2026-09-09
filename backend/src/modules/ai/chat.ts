@@ -1,10 +1,10 @@
 import { prisma } from '../../config/prisma'
-import { callOpenAI } from './ai.service'
+import { callLLM, getActiveModel } from './llm'
 
 // M23 - Chat IA
 // Responde perguntas sobre investimentos, mercado financeiro e cripto.
-// Sem OPENAI_API_KEY usa regras tematicas com dados reais da plataforma;
-// com chave configurada, delega ao modelo (com contexto do mercado).
+// Com GROQ_API_KEY/OPENAI_API_KEY delega ao modelo (com contexto do mercado);
+// sem chave usa regras tematicas com dados reais da plataforma.
 
 export interface ChatMessage {
   role: 'user' | 'assistant'
@@ -238,8 +238,8 @@ export async function answerQuestion(message: string, history: ChatMessage[] = [
   const snapshot = await getSnapshot()
   const template = await buildTemplateAnswer(message)
 
-  const apiKey = process.env.OPENAI_API_KEY
-  if (!apiKey) {
+  const model = getActiveModel()
+  if (model === 'template') {
     return { reply: template, ai: false, model: 'template' }
   }
 
@@ -258,33 +258,7 @@ export async function answerQuestion(message: string, history: ChatMessage[] = [
     { role: 'user' as const, content: message },
   ]
 
-  const ai = await callOpenAIviaMessages(messages, system)
+  const ai = await callLLM(messages)
   if (!ai) return { reply: template, ai: false, model: 'template' }
-  return { reply: ai.output, ai: true, model: process.env.OPENAI_MODEL || 'gpt-4o-mini' }
-}
-
-async function callOpenAIviaMessages(
-  messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
-  systemHint: string,
-): Promise<{ output: string; latencyMs: number } | null> {
-  try {
-    const start = Date.now()
-    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-        messages,
-        temperature: 0.4,
-      }),
-    })
-    const json: any = await resp.json()
-    const output = json?.choices?.[0]?.message?.content
-    return output ? { output, latencyMs: Date.now() - start } : null
-  } catch {
-    return null
-  }
+  return { reply: ai.output, ai: true, model }
 }

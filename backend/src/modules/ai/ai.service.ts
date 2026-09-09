@@ -1,9 +1,11 @@
 import { prisma } from '../../config/prisma'
 import { ONBOARDING_QUESTIONS, OnboardingAnswer, RISK_PROFILE_LABELS, CLIENT_TYPE_LABELS } from './questions'
+import { callLLM } from './llm'
 
 // M20/M21 - IA/Assistente
 // Camada de servico: dados -> templates markdown (data-driven),
-// com integracao opcional a OpenAI quando OPENAI_API_KEY estiver configurada.
+// com geracao de texto via IA gratuita (Groq) quando GROQ_API_KEY estiver
+// configurada (OpenAI continua como opcao via OPENAI_API_KEY).
 
 export type RiskProfileResult = 'CONSERVATIVE' | 'MODERATE' | 'AGGRESSIVE'
 export type ClientTypeResult = 'BEGINNER' | 'ENTHUSIAST' | 'INTERMEDIATE' | 'ADVANCED' | 'PROFESSIONAL'
@@ -24,31 +26,13 @@ export function fmtCompact(n: bigint | number | null | undefined) {
   return v.toFixed(2)
 }
 
-// ---------- OpenAI opcional ----------
+// ---------- IA gratuita/opcional (Groq -> OpenAI) ----------
 
 export async function callOpenAI(prompt: string): Promise<{ output: string; latencyMs: number } | null> {
-  const apiKey = process.env.OPENAI_API_KEY
-  if (!apiKey) return null
-  const start = Date.now()
-  try {
-    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: prompt },
-          { role: 'user', content: 'Gere a resposta agora, em portugues, concisa e acao-clara.' },
-        ],
-        temperature: 0.4,
-      }),
-    })
-    const json: any = await resp.json()
-    const output = json?.choices?.[0]?.message?.content
-    return output ? { output, latencyMs: Date.now() - start } : null
-  } catch {
-    return null
-  }
+  return callLLM([
+    { role: 'system', content: prompt },
+    { role: 'user', content: 'Gere a resposta agora, em portugues, concisa e acao-clara.' },
+  ])
 }
 
 export async function registerAiRequest(params: {
