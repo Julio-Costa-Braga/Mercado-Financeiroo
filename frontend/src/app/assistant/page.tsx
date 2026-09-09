@@ -1,5 +1,5 @@
 'use client'
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { Main } from '@/components/layout'
 import { Button, Card, PageHeader, Spinner, StatusBadge, inputCls, selectCls } from '@/components/ui'
 import { api } from '@/lib/api'
@@ -25,10 +25,7 @@ interface TipsResponse {
   data?: any
 }
 
-interface ChatMsg {
-  role: 'user' | 'assistant'
-  content: string
-}
+type Tab = 'briefing' | 'tips'
 
 const SCOPES = [
   { value: 'platform', label: 'Plataforma' },
@@ -38,43 +35,46 @@ const SCOPES = [
   { value: 'client', label: 'Cliente (id)' },
 ]
 
-const SUGGESTIONS = [
-  'O que está em alta hoje?',
-  'Vale investir em cripto?',
-  'Como diversificar minha carteira?',
-  'O que é renda fixa?',
-]
+type Result = { generatedAt: string; ai: boolean; sections: string[] }
 
-function renderSection(text: string, idx: number) {
-  const lines = text.split('\n')
-  const title = lines[0].replace(/^##\s+/, '')
-  const body = lines.slice(1).filter((l) => l.trim())
+function SectionList({ sections }: { sections: string[] }) {
   return (
-    <Card key={idx} title={title}>
-      <div className="space-y-1.5">
-        {body.map((l, j) => (
-          <p key={j} className="text-sm text-gray-400 whitespace-pre-wrap">
-            {l}
-          </p>
-        ))}
-      </div>
-    </Card>
+    <div className="space-y-5">
+      {sections.map((text, i) => {
+        const lines = text.split('\n').filter((l) => l.trim())
+        const title = lines[0]?.replace(/^#+\s+/, '').trim() || `Seção ${i + 1}`
+        const body = lines.slice(1)
+        return (
+          <Card key={i} className="!p-0 overflow-hidden">
+            <div className="px-5 py-4 border-b border-market-border bg-market-bg/40 flex items-center gap-3">
+              <span className="flex items-center justify-center w-6 h-6 rounded-lg bg-market-accent/15 text-market-accent text-xs font-bold shrink-0">
+                {i + 1}
+              </span>
+              <h2 className="text-sm font-semibold text-gray-100">{title}</h2>
+            </div>
+            <div className="px-5 py-4 space-y-2.5">
+              {body.map((l, j) => (
+                <p key={j} className="text-[13px] text-gray-400 leading-relaxed whitespace-pre-wrap">
+                  {l.replace(/^[-*]\s+/, '').replace(/\*\*(.*?)\*\*/g, '$1')}
+                </p>
+              ))}
+              {body.length === 0 && <p className="text-[13px] text-gray-500">—</p>}
+            </div>
+          </Card>
+        )
+      })}
+    </div>
   )
 }
 
 export default function AssistantPage() {
-  const [tab, setTab] = useState<'briefing' | 'tips' | 'chat'>('briefing')
+  const [tab, setTab] = useState<Tab>('briefing')
   const [scope, setScope] = useState('platform')
   const [id, setId] = useState('')
-  const [bing, setBing] = useState<BriefingResponse | null>(null)
-  const [tips, setTips] = useState<TipsResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-
-  const [messages, setMessages] = useState<ChatMsg[]>([])
-  const [draft, setDraft] = useState('')
-  const [sending, setSending] = useState(false)
-  const chatEndRef = useRef<HTMLDivElement>(null)
+  const [result, setResult] = useState<Result | null>(null)
+  const [meta, setMeta] = useState<{ scope?: string }>({})
 
   const loadBriefing = useCallback(async (scopeVal: string, idVal: string) => {
     setLoading(true)
@@ -83,11 +83,11 @@ export default function AssistantPage() {
       const params = new URLSearchParams({ scope: scopeVal })
       if (idVal) params.set('id', idVal)
       const data = await api.get<BriefingResponse>(`/ai/briefing?${params.toString()}`)
-      setBing(data)
-      setTips(null)
+      setResult(data.briefing)
+      setMeta({ scope: scopeVal + (idVal ? `:${idVal}` : '') })
     } catch (err: any) {
       setError(err.message || 'Erro ao gerar briefing')
-      setBing(null)
+      setResult(null)
     } finally {
       setLoading(false)
     }
@@ -98,11 +98,11 @@ export default function AssistantPage() {
     setError('')
     try {
       const data = await api.get<TipsResponse>('/ai/tips')
-      setTips(data)
-      setBing(null)
+      setResult(data.tips)
+      setMeta({ scope: 'tips' })
     } catch (err: any) {
       setError(err.message || 'Erro ao gerar dicas')
-      setTips(null)
+      setResult(null)
     } finally {
       setLoading(false)
     }
@@ -113,191 +113,139 @@ export default function AssistantPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, sending])
-
-  async function sendMessage(text: string) {
-    const t = text.trim()
-    if (!t || sending) return
-    const history: ChatMsg[] = [...messages, { role: 'user', content: t }]
-    setMessages(history)
-    setDraft('')
-    setSending(true)
-    setError('')
-    try {
-      const res = await api.post<{ reply: string; ai: boolean }>('/ai/chat', {
-        message: t,
-        history: messages.slice(-6),
-      })
-      setMessages((m) => [...m, { role: 'assistant', content: res.reply }])
-    } catch (err: any) {
-      setError(err.message || 'Erro ao enviar mensagem')
-    } finally {
-      setSending(false)
-    }
-  }
-
-  function handleGenerate() {
-    if (tab === 'tips') loadTips()
-    else if (tab === 'briefing') loadBriefing(scope, id.trim())
-    else sendMessage(draft)
-  }
-
-  const ai = tab === 'tips' ? tips?.tips : bing?.briefing
+  const needsId = scope === 'asset' || scope === 'sector' || scope === 'client'
 
   return (
     <Main>
       <PageHeader
         title="Assistente IA"
-        subtitle="Briefings executivos, dicas de investimento e chat sobre o mercado"
-        actions={
-          <Button onClick={handleGenerate} disabled={loading || (tab === 'chat' && sending)}>
-            {loading || sending
-              ? tab === 'chat'
-                ? 'Enviando...'
-                : 'Gerando...'
-              : tab === 'tips'
-                ? 'Gerar dicas'
-                : tab === 'chat'
-                  ? 'Enviar'
-                  : 'Gerar briefing'}
-          </Button>
-        }
+        subtitle="Briefings executivos e dicas de investimento com dados reais da plataforma"
       />
 
-      <div className="flex flex-wrap gap-2 mb-6">
-        {(['briefing', 'tips', 'chat'] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
-              tab === t
-                ? 'bg-market-accent/15 text-market-accent border-market-accent/40'
-                : 'bg-market-card/50 text-gray-400 border-market-border hover:text-gray-200'
-            }`}
-          >
-            {t === 'briefing' ? 'Briefings' : t === 'tips' ? 'Dicas de investimento' : 'Chat de IA'}
-          </button>
-        ))}
-      </div>
-
-      {tab === 'briefing' && (
-        <div className="flex flex-wrap gap-3 items-end mb-6">
-          <div>
-            <label className="text-xs text-gray-500 block mb-1">Escopo</label>
-            <select value={scope} onChange={(e) => setScope(e.target.value)} className={`${selectCls} min-w-48`}>
-              {SCOPES.map((s) => (
-                <option key={s.value} value={s.value}>{s.label}</option>
-              ))}
-            </select>
-          </div>
-          {(scope === 'asset' || scope === 'sector' || scope === 'client') && (
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">{scope === 'asset' ? 'Ticker (ex: NVDA)' : scope === 'sector' ? 'Setor (ex: Technology)' : 'Id do cliente'}</label>
-              <input
-                value={id}
-                onChange={(e) => setId(e.target.value)}
-                placeholder={scope === 'asset' ? 'NVDA' : scope === 'sector' ? 'Technology' : 'client-...'}
-                className={`${inputCls} min-w-64`}
-              />
-            </div>
-          )}
-        </div>
-      )}
-
-      {tab === 'tips' && (
-        <Card className="mb-6">
-          <p className="text-sm text-gray-400">
-            Dicas geradas a partir dos dados da plataforma: momentum do dia, fundamentos, dividendos, setores e eventos econômicos previstos. Não constituem recomendação formal de investimento.
-          </p>
-        </Card>
-      )}
-
-      {tab === 'chat' && (
-        <Card className="mb-6">
-          <div className="flex flex-wrap gap-1.5">
-            {SUGGESTIONS.map((s) => (
+      <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6 items-start">
+        {/* Painel de controles */}
+        <Card className="lg:sticky lg:top-20">
+          <div className="flex rounded-xl bg-market-bg border border-market-border p-1 mb-5">
+            {(['briefing', 'tips'] as const).map((t) => (
               <button
-                key={s}
-                onClick={() => sendMessage(s)}
-                className="text-xs px-3 py-1.5 rounded-full bg-market-bg border border-market-border text-gray-400 hover:text-market-accent hover:border-market-accent/40 transition-all"
+                key={t}
+                onClick={() => {
+                  setTab(t)
+                  setError('')
+                }}
+                className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                  tab === t ? 'bg-market-accent/15 text-market-accent border border-market-accent/40' : 'text-gray-400 hover:text-gray-200'
+                }`}
               >
-                {s}
+                {t === 'briefing' ? 'Briefings' : 'Dicas'}
               </button>
             ))}
           </div>
-        </Card>
-      )}
 
-      {error && <p className="text-sm text-market-down mb-4">{error}</p>}
-
-      {tab === 'chat' ? (
-        <Card>
-          <div className="space-y-4 max-h-[480px] overflow-y-auto pr-1">
-            {messages.length === 0 && (
-              <p className="text-sm text-gray-500 text-center py-6">
-                Pergunte algo sobre investimentos, o mercado financeiro ou criptomoedas. A IA usa os dados atuais da plataforma.
-              </p>
-            )}
-            {messages.map((m, i) => (
-              <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div
-                  className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm whitespace-pre-wrap ${
-                    m.role === 'user'
-                      ? 'bg-market-accent/15 border border-market-accent/40 text-gray-100'
-                      : 'bg-market-bg border border-market-border text-gray-300'
-                  }`}
-                >
-                  {m.content}
-                </div>
+          {tab === 'briefing' ? (
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs text-gray-500 block mb-1.5">Escopo</label>
+                <select value={scope} onChange={(e) => setScope(e.target.value)} className={`${selectCls} w-full`}>
+                  {SCOPES.map((s) => (
+                    <option key={s.value} value={s.value}>{s.label}</option>
+                  ))}
+                </select>
               </div>
-            ))}
-            {sending && (
-              <div className="flex justify-start">
-                <div className="bg-market-bg border border-market-border rounded-2xl px-4 py-2.5 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-market-accent animate-pulse" />
-                  <span className="w-2 h-2 rounded-full bg-market-accent animate-pulse [animation-delay:150ms]" />
-                  <span className="w-2 h-2 rounded-full bg-market-accent animate-pulse [animation-delay:300ms]" />
-                  <span className="text-xs text-gray-500 ml-1">IA pensando...</span>
+              {needsId && (
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1.5">
+                    {scope === 'asset' ? 'Ticker (ex: NVDA)' : scope === 'sector' ? 'Setor (ex: Technology)' : 'Id do cliente'}
+                  </label>
+                  <input
+                    value={id}
+                    onChange={(e) => setId(e.target.value)}
+                    placeholder={scope === 'asset' ? 'NVDA' : scope === 'sector' ? 'Technology' : 'client-...'}
+                    className={`${inputCls} w-full`}
+                  />
                 </div>
+              )}
+              <Button onClick={() => loadBriefing(scope, id.trim())} disabled={loading} className="w-full justify-center">
+                {loading ? 'Gerando...' : 'Gerar briefing'}
+              </Button>
+              {meta.scope && result && (
+                <p className="text-[11px] text-gray-600">
+                  Último briefing: <span className="text-gray-400">{meta.scope}</span> ·{' '}
+                  {new Date(result.generatedAt).toLocaleTimeString('pt-PT')}
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <p className="text-[13px] text-gray-400 leading-relaxed">
+                  Dicas geradas a partir dos dados da plataforma: momentum do dia, fundamentos, dividendos, setores e eventos econômicos previstos.
+                </p>
+                <p className="text-[11px] text-gray-600">Não constituem recomendação formal de investimento.</p>
               </div>
-            )}
-            <div ref={chatEndRef} />
-          </div>
+              <Button onClick={loadTips} disabled={loading} className="w-full justify-center">
+                {loading ? 'Gerando...' : 'Gerar dicas'}
+              </Button>
+              {meta.scope === 'tips' && result && (
+                <p className="text-[11px] text-gray-600">
+                  Última geração: {new Date(result.generatedAt).toLocaleTimeString('pt-PT')}
+                </p>
+              )}
+            </div>
+          )}
 
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              sendMessage(draft)
-            }}
-            className="mt-4 flex gap-2"
-          >
-            <input
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder="Escreva sua pergunta... (Enter para enviar)"
-              className={inputCls}
-            />
-            <Button type="submit" disabled={sending || !draft.trim()}>Enviar</Button>
-          </form>
+          {error && (
+            <div className="mt-4 p-3 rounded-xl bg-market-down/10 border border-market-down/30 text-sm text-market-down">{error}</div>
+          )}
+
+          <div className="mt-5 pt-4 border-t border-market-border text-[11px] text-gray-500 leading-relaxed">
+            Tem dúvidas? Use o <span className="text-gray-300">chat de IA</span> no botão flutuante do canto inferior direito da tela.
+          </div>
         </Card>
-      ) : loading ? (
-        <Spinner />
-      ) : ai ? (
-        <div>
-          <div className="flex items-center gap-2 mb-4">
-            <StatusBadge status={ai.ai ? 'DONE' : 'ACTIVE'} />
-            <span className="text-xs text-gray-500">
-              {ai.ai ? 'Gerado por IA (OpenAI)' : 'Modo template (sem OPENAI_API_KEY)'} ·{' '}
-              {new Date(ai.generatedAt).toLocaleTimeString('pt-PT')}
-            </span>
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {ai.sections.map((s, i) => renderSection(s, i))}
-          </div>
+
+        {/* Painel de resultados */}
+        <div className="min-w-0">
+          {loading && (
+            <Card>
+              <div className="flex items-center gap-3">
+                <Spinner />
+                <p className="text-sm text-gray-400">
+                  {tab === 'briefing' ? 'Gerando briefing' : 'Gerando dicas'}... Isso leva alguns segundos.
+                </p>
+              </div>
+            </Card>
+          )}
+
+          {!loading && !result && (
+            <Card>
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <span className="flex items-center justify-center w-12 h-12 rounded-2xl bg-market-accent/10 border border-market-accent/20 mb-3">
+                  <svg className="w-6 h-6 text-market-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.7}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 13l4-4 4 4 5-6 5 5M3 20h18" />
+                  </svg>
+                </span>
+                <p className="text-sm text-gray-400 font-medium mb-1">Nenhum resultado ainda</p>
+                <p className="text-xs text-gray-600 max-w-sm">
+                  Escolha um escopo no painel ao lado e clique em "Gerar briefing" ou gere as dicas de investimento do dia.
+                </p>
+              </div>
+            </Card>
+          )}
+
+          {!loading && result && (
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <StatusBadge status={result.ai ? 'DONE' : 'ACTIVE'} />
+                <span className="text-xs text-gray-500">
+                  {result.ai ? 'Gerado por IA' : 'Modo template (sem chave de IA)'} ·{' '}
+                  {new Date(result.generatedAt).toLocaleTimeString('pt-PT')}
+                </span>
+              </div>
+              <SectionList sections={result.sections} />
+            </div>
+          )}
         </div>
-      ) : null}
+      </div>
     </Main>
   )
 }
