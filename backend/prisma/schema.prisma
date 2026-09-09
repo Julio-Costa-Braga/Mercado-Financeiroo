@@ -120,6 +120,10 @@ model Client {
   owner         User?           @relation("ClientOwner", fields: [ownerId], references: [id], onDelete: SetNull)
   experience    String?
   objective     String?
+  riskProfile   RiskProfile?
+  clientType    ClientType?
+  onboardingCompletedAt DateTime?
+  onboardingAnswers Json?
   lastContactAt DateTime?
   lastLoginAt   DateTime?
   lastInteractionAt DateTime?
@@ -149,6 +153,20 @@ enum ClientStatus {
   PWM
   AT_RISK
   CHURNED
+}
+
+enum RiskProfile {
+  CONSERVATIVE
+  MODERATE
+  AGGRESSIVE
+}
+
+enum ClientType {
+  BEGINNER
+  ENTHUSIAST
+  INTERMEDIATE
+  ADVANCED
+  PROFESSIONAL
 }
 
 model ClientInterest {

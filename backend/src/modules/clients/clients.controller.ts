@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express'
 import { prisma } from '../../config/prisma'
 import { Errors } from '../../utils/errors'
+import { generateClientSketch } from '../ai/ai.service'
 
 const CLIENT_SELECT = {
   id: true,
@@ -11,6 +12,9 @@ const CLIENT_SELECT = {
   status: true,
   churnRisk: true,
   priorityScore: true,
+  riskProfile: true,
+  clientType: true,
+  onboardingCompletedAt: true,
   lastContactAt: true,
   lastLoginAt: true,
   lastInteractionAt: true,
@@ -131,6 +135,11 @@ export async function createClient(req: Request, res: Response, next: NextFuncti
       select: CLIENT_SELECT,
     })
 
+    // Esboco automatico gerado pela IA em background (nao bloqueia a resposta)
+    queueMicrotask(() => {
+      generateClientSketch(client.id).catch(() => {})
+    })
+
     res.status(201).json({ client })
   } catch (err) {
     next(err)
@@ -160,6 +169,11 @@ export async function updateClient(req: Request, res: Response, next: NextFuncti
         before: { name: before.name, status: before.status },
         after: { name: client.name, status: client.status },
       },
+    })
+
+    // Atualiza o esboco do cliente em background
+    queueMicrotask(() => {
+      generateClientSketch(id).catch(() => {})
     })
 
     res.json({ client })

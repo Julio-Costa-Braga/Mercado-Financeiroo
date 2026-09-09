@@ -1,6 +1,18 @@
 import { Request, Response, NextFunction } from 'express'
 import { prisma } from '../../config/prisma'
 import { Errors } from '../../utils/errors'
+import {
+  analyzeFundamentals,
+  generateRecommendation,
+  callOpenAI,
+  registerAiRequest,
+  generateInvestmentTips,
+  generateClientSketch,
+  calculateProfile,
+  fmt,
+  fmtCompact,
+} from './ai.service'
+import { ONBOARDING_QUESTIONS } from './questions'
 
 // M20 - IA/Assistente
 // MVP: briefings gerados a partir dos dados da plataforma (template/data-driven).
@@ -12,20 +24,6 @@ type BriefingScope =
   | { type: 'client'; clientId: string }
   | { type: 'sector'; sector: string }
   | { type: 'news' }
-
-function fmt(n: number | null | undefined, digits = 2) {
-  if (n == null) return '—'
-  return n.toFixed(digits)
-}
-
-function fmtCompact(n: bigint | number | null | undefined) {
-  if (n == null) return '—'
-  const v = Number(n)
-  if (Math.abs(v) >= 1e9) return `${(v / 1e9).toFixed(2)}B`
-  if (Math.abs(v) >= 1e6) return `${(v / 1e6).toFixed(2)}M`
-  if (Math.abs(v) >= 1e3) return `${(v / 1e3).toFixed(1)}K`
-  return v.toFixed(2)
-}
 
 async function generateBriefing(scope: BriefingScope): Promise<{ sections: string[]; data: any }> {
   switch (scope.type) {
@@ -175,44 +173,6 @@ async function generateBriefing(scope: BriefingScope): Promise<{ sections: strin
   }
 }
 
-function analyzeFundamentals(f: {
-  peRatio?: number | null
-  dividendYield?: number | null
-  marketCap?: bigint | null
-  roe?: number | null
-  roa?: number | null
-}) {
-  if (f.peRatio == null && f.dividendYield == null && f.marketCap == null && f.roe == null) {
-    return 'Dados fundamentais indisponíveis.'
-  }
-  const parts: string[] = []
-  if (f.peRatio && f.peRatio > 0 && f.peRatio < 15) parts.push('múltiplo P/L atrativo.')
-  if (f.dividendYield && f.dividendYield > 4) parts.push('bom retorno de dividendos.')
-  if (f.roe && f.roe > 20) parts.push('alta rentabilidade sobre patrimônio (ROE).')
-  if (f.roa && f.roa > 10) parts.push('bom retorno sobre ativos (ROA).')
-  return parts.join('\n') || 'Múltiplos em linha com o mercado.'
-}
-
-function generateRecommendation(f: {
-  peRatio?: number | null
-  dividendYield?: number | null
-  marketCap?: bigint | null
-  roe?: number | null
-}) {
-  if (f.peRatio == null && f.dividendYield == null && f.marketCap == null && f.roe == null) {
-    return 'Recomendação: sem fundamentos suficientes, mantenha observação.'
-  }
-  let score = 50
-  if (f.peRatio && f.peRatio > 0 && f.peRatio < 15) score += 10
-  if (f.peRatio && f.peRatio > 30) score -= 10
-  if (f.dividendYield && f.dividendYield > 4) score += 10
-  if (f.marketCap && Number(f.marketCap) > 1e10) score += 5
-  if (f.roe && f.roe > 20) score += 10
-  if (score >= 65) return `Sinal de compra moderado (score ${score}/100).`
-  if (score >= 45) return `Manter em carteira; aguardar melhor ponto de entrada (score ${score}/100).`
-  return `Sinal defensivo/cauteloso (score ${score}/100).`
-}
-
 function generateClientActions(client: any) {
   const actions: string[] = []
   if (client.status === 'AT_RISK' || client.churnRisk >= 70) {
@@ -271,46 +231,18 @@ export async function getBriefing(req: Request, res: Response, next: NextFunctio
     }
 
     const { sections, data } = await generateBriefing(briefingScope)
-
     const prompt = sections.join('\n\n')
+    const ai = await callOpenAI(prompt)
+    const output = ai?.output ?? null
 
-    // Se houver chave de IA, envia prompt à API
-    const apiKey = process.env.OPENAI_API_KEY
-    let aiOutput: string | null = null
-    let latencyMs: number | null = null
-    if (apiKey) {
-      const start = Date.now()
-      try {
-        const resp = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-          body: JSON.stringify({
-            model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-            messages: [
-              { role: 'system', content: prompt },
-              { role: 'user', content: 'Gere o briefing agora.' },
-            ],
-            temperature: 0.4,
-          }),
-        })
-        const json: any = await resp.json()
-        aiOutput = json?.choices?.[0]?.message?.content ?? null
-        latencyMs = Date.now() - start
-      } catch {
-        aiOutput = null
-      }
-    }
-
-    const record = await prisma.aiRequest.create({
-      data: {
-        userId: req.user!.id,
-        type: `briefing:${briefingScope.type}`,
-        question: `Briefing ${briefingScope.type}`,
-        input: sanitizeForJson({ data }),
-        output: aiOutput ? sanitizeForJson({ text: aiOutput, sections: aiOutput ? [aiOutput] : sections }) : sanitizeForJson({ sections }),
-        model: apiKey ? process.env.OPENAI_MODEL || 'gpt-4o-mini' : 'template',
-        latencyMs,
-      },
+    const record = await registerAiRequest({
+      userId: req.user!.id,
+      type: `briefing:${briefingScope.type}`,
+      question: `Briefing ${briefingScope.type}`,
+      input: { data },
+      output: output ? { text: output, sections: [output] } : { sections },
+      model: output ? process.env.OPENAI_MODEL || 'gpt-4o-mini' : 'template',
+      latencyMs: ai?.latencyMs ?? null,
     })
 
     res.json({
@@ -318,8 +250,8 @@ export async function getBriefing(req: Request, res: Response, next: NextFunctio
         id: record.id,
         scope: briefingScope.type,
         generatedAt: record.createdAt,
-        sections: aiOutput ? [aiOutput] : sections,
-        ai: !!aiOutput,
+        sections: output ? [output] : sections,
+        ai: !!output,
       },
       data: sanitizeForJson(data),
     })
@@ -342,6 +274,122 @@ export async function listRequests(req: Request, res: Response, next: NextFuncti
       }),
     ])
     res.json({ requests, total })
+  } catch (err) {
+    next(err)
+  }
+}
+
+// ---------- Onboarding / perfil do investidor ----------
+
+export async function getQuestions(req: Request, res: Response, next: NextFunction) {
+  try {
+    res.json({ questions: ONBOARDING_QUESTIONS })
+  } catch (err) {
+    next(err)
+  }
+}
+
+export async function submitOnboarding(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { clientId, answers } = req.body as {
+      clientId: string
+      answers: Array<{ questionId: string; value: number }>
+    }
+    if (!clientId || !Array.isArray(answers) || answers.length === 0) {
+      throw Errors.badRequest('clientId e respostas (answers) são obrigatórios')
+    }
+
+    const client = await prisma.client.findUnique({ where: { id: clientId } })
+    if (!client) throw Errors.notFound('Cliente não encontrado')
+
+    const profile = calculateProfile(answers)
+
+    const updated = await prisma.client.update({
+      where: { id: clientId },
+      data: {
+        riskProfile: profile.riskProfile,
+        clientType: profile.clientType,
+        onboardingCompletedAt: new Date(),
+        onboardingAnswers: sanitizeForJson(answers),
+      },
+    })
+
+    const { sketch } = await generateClientSketch(clientId)
+
+    await registerAiRequest({
+      userId: req.user!.id,
+      type: 'onboarding',
+      question: `Questionario de perfil do cliente ${client.name}`,
+      input: { clientId, answers, before: { riskProfile: client.riskProfile, clientType: client.clientType } },
+      output: { riskProfile: profile.riskProfile, clientType: profile.clientType, sketch },
+    })
+
+    res.json({
+      saved: true,
+      clientId,
+      profile: {
+        riskProfile: profile.riskProfile,
+        clientType: profile.clientType,
+        score: profile.score,
+        explanation: profile.riskExplanation,
+      },
+      onboardingCompletedAt: updated.onboardingCompletedAt,
+      sketch,
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+// ---------- Dicas de investimento ----------
+
+export async function getTips(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { sections, data } = await generateInvestmentTips()
+    const prompt = sections.join('\n\n')
+    const ai = await callOpenAI(prompt)
+    const output = ai?.output ?? null
+
+    const record = await registerAiRequest({
+      userId: req.user!.id,
+      type: 'tips',
+      question: 'Dicas de investimento',
+      input: data,
+      output: output ? { text: output, sections: [output] } : { sections },
+      model: output ? process.env.OPENAI_MODEL || 'gpt-4o-mini' : 'template',
+      latencyMs: ai?.latencyMs ?? null,
+    })
+
+    res.json({
+      tips: {
+        id: record.id,
+        generatedAt: record.createdAt,
+        sections: output ? [output] : sections,
+        ai: !!output,
+      },
+      data: sanitizeForJson(data),
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+// ---------- Esboço automático do cliente ----------
+
+export async function getClientSketch(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { clientId } = req.params
+    const { sketch, client } = await generateClientSketch(clientId)
+
+    const record = await registerAiRequest({
+      userId: req.user!.id,
+      type: 'sketch:client',
+      question: `Esboço do cliente ${client.name}`,
+      input: { clientId },
+      output: { sketch },
+    })
+
+    res.json({ sketch, client, updatedAt: record.createdAt })
   } catch (err) {
     next(err)
   }
