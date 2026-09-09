@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useState } from 'react'
 import { Main } from '@/components/layout'
 import { Card, Spinner, formatDate } from '@/components/ui'
 import { api } from '@/lib/api'
+import { useI18n } from '@/lib/i18n'
 
 interface NewsArticle {
   id: string
@@ -17,7 +18,14 @@ interface NewsArticle {
   assetLinks: Array<{ asset: { ticker: string; name: string } }>
 }
 
+const IMPACT_LABEL: Record<string, string> = {
+  HIGH: 'Alta',
+  MEDIUM: 'Média',
+  LOW: 'Baixa',
+}
+
 export default function NewsPage() {
+  const { locale } = useI18n()
   const [news, setNews] = useState<NewsArticle[]>([])
   const [loading, setLoading] = useState(true)
   const [impact, setImpact] = useState('')
@@ -29,6 +37,7 @@ export default function NewsPage() {
       const params = new URLSearchParams()
       if (impact) params.set('impact', impact)
       if (search) params.set('search', search)
+      if (locale !== 'en') params.set('lang', locale)
       const data = await api.get<{ news: NewsArticle[] }>(`/news?${params.toString()}`)
       setNews(data.news)
     } catch (err: any) {
@@ -36,7 +45,7 @@ export default function NewsPage() {
     } finally {
       setLoading(false)
     }
-  }, [impact, search])
+  }, [impact, search, locale])
 
   useEffect(() => {
     const t = setTimeout(load, 300)
@@ -84,7 +93,7 @@ export default function NewsPage() {
                         n.impact === 'MEDIUM' ? 'bg-amber-500/10 text-amber-400' :
                         'bg-gray-500/10 text-gray-400'
                       }`}>
-                        {n.impact}
+                        {locale === 'en' ? n.impact : (IMPACT_LABEL[n.impact] || n.impact)}
                       </span>
                     )}
                     {n.sentiment !== null && n.sentiment !== undefined && (

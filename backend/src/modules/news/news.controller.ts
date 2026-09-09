@@ -1,11 +1,12 @@
 import { Request, Response, NextFunction } from 'express'
 import { prisma } from '../../config/prisma'
+import { newsTranslated, translateNews } from './news.i18n'
 
 export async function listNews(req: Request, res: Response, next: NextFunction) {
   try {
     const {
       assetId, sector, region, country, impact, sentiment,
-      search, page = '1', limit = '20',
+      search, page = '1', limit = '20', lang,
     } = req.query as any
 
     const where: any = {}
@@ -35,7 +36,13 @@ export async function listNews(req: Request, res: Response, next: NextFunction) 
       }),
     ])
 
-    res.json({ news, total })
+    let items: any[] = news
+    if (lang) {
+      const translations = await translateNews(lang, news)
+      items = newsTranslated(news, translations)
+    }
+
+    res.json({ news: items, total })
   } catch (err) {
     next(err)
   }

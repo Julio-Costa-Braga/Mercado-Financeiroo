@@ -8,6 +8,12 @@ export interface LLMMessage {
   content: string
 }
 
+export interface LLMOpts {
+  temperature?: number
+  maxTokens?: number
+  json?: boolean
+}
+
 export const DEFAULT_GROQ_MODEL = 'openai/gpt-oss-120b'
 export const DEFAULT_OPENAI_MODEL = 'gpt-4o-mini'
 
@@ -23,11 +29,22 @@ export function getActiveModel(): string {
 
 export async function callLLM(
   messages: LLMMessage[],
-  opts: { temperature?: number; maxTokens?: number } = {},
+  opts: LLMOpts = {},
 ): Promise<{ output: string; latencyMs: number } | null> {
   const temperature = opts.temperature ?? 0.4
   const maxTokens = opts.maxTokens ?? 900
   const start = Date.now()
+
+  const buildBody = (messages: LLMMessage[]) => {
+    const body: any = {
+      model: getActiveModel(),
+      messages,
+      temperature,
+      max_tokens: maxTokens,
+    }
+    if (opts.json) body.response_format = { type: 'json_object' }
+    return body
+  }
 
   try {
     if (process.env.GROQ_API_KEY) {
@@ -37,12 +54,7 @@ export async function callLLM(
           'Content-Type': 'application/json',
           Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
         },
-        body: JSON.stringify({
-          model: getActiveModel(),
-          messages,
-          temperature,
-          max_tokens: maxTokens,
-        }),
+        body: JSON.stringify(buildBody(messages)),
       })
       if (!resp.ok) return null
       const json: any = await resp.json()
@@ -57,12 +69,7 @@ export async function callLLM(
           'Content-Type': 'application/json',
           Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
         },
-        body: JSON.stringify({
-          model: getActiveModel(),
-          messages,
-          temperature,
-          max_tokens: maxTokens,
-        }),
+        body: JSON.stringify(buildBody(messages)),
       })
       if (!resp.ok) return null
       const json: any = await resp.json()

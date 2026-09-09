@@ -6,6 +6,7 @@ import { api } from '@/lib/api'
 import { connectSocket, getSocket, disconnectSocket } from '@/lib/socket'
 import { useI18n } from '@/lib/i18n'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
+import ChatWidget from '@/components/ChatWidget'
 
 interface User {
   id: string
@@ -310,6 +311,7 @@ export function Main({ children }: { children: React.ReactNode }) {
         <Topbar pathname={pathname} />
         <main className="flex-1 p-6 lg:p-8 max-w-[1600px] w-full mx-auto">{children}</main>
       </div>
+      <ChatWidget />
     </div>
   )
 }
