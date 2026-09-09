@@ -52,8 +52,6 @@ async function getSnapshot() {
   }
 }
 
-const DISCLAIMER = 'Esta resposta é informativa, baseada nos dados da plataforma, e não constitui recomendação formal de investimento.'
-
 function matchAny(message: string, patterns: RegExp[]): boolean {
   return patterns.some((p) => p.test(message.toLowerCase()))
 }
@@ -86,8 +84,6 @@ async function buildTemplateAnswer(message: string): Promise<string> {
       '- Não usar capital de reserva de emergência;',
       '- Investir o que estiver disposto a perder sem comprometer objetivos;',
       '- Preferir corretoras reguladas e carteiras próprias (cold wallet) para valores altos.',
-      '',
-      DISCLAIMER,
     ].join('\n')
   }
 
@@ -101,9 +97,7 @@ async function buildTemplateAnswer(message: string): Promise<string> {
       '- Poupança: muita liquidez, mas rende abaixo da inflação no longo prazo.',
       '',
       'Regra prática: quanto maior o prazo e o risco de crédito, maior deve ser o retorno. Se o retorno pago está muito acima do mercado, desconfie.',
-      '',
-      DISCLAIMER,
-    ].join('\n')
+      ].join('\n')
   }
 
   if (matchAny(m, [/\b(acao|ação|acoes|ações|bolsa|stock|stocks|renda variavel|renda variável|equity)\b/])) {
@@ -116,9 +110,7 @@ async function buildTemplateAnswer(message: string): Promise<string> {
       '- Tenha horizonte de 3-5 anos+ para reduzir o efeito das oscilações;',
       '- Avalie fundamentos (P/L, dividendos, ROE) e não apenas a cotação do dia;',
       '- Se for iniciante, comece por ETFs que replicam índices.',
-      '',
-      DISCLAIMER,
-    ].join('\n')
+      ].join('\n')
   }
 
   if (matchAny(m, [/\betf\b|\bfundo[s]?\b|\bfii\b|\bfundo imobili\w*\b/])) {
@@ -130,9 +122,7 @@ async function buildTemplateAnswer(message: string): Promise<string> {
       '- Fundos tradicionais: gestão profissional, porém com taxas de administração que reduzem o retorno.',
       '',
       'Dica: prefira ETFs com TER (taxa) baixa e que exponham a índices amplos ao começar.',
-      '',
-      DISCLAIMER,
-    ].join('\n')
+      ].join('\n')
   }
 
   if (matchAny(m, [/\bdividend|rendimento|proventos|pag[au] di\/dividendos\b/])) {
@@ -144,9 +134,7 @@ async function buildTemplateAnswer(message: string): Promise<string> {
       '- Dividendos físicos em FIIs são isentos de IR para pessoa física; em ações, há isenção até R$ 20 mil/mês em vendas de até R$ 20 mil.',
       '',
       'Na plataforma, ative o alerta de dividendos ou peça um briefing por ativo para ver o histórico.',
-      '',
-      DISCLAIMER,
-    ].join('\n')
+      ].join('\n')
   }
 
   if (matchAny(m, [/\bdiversific|carteira|portfolio|alocac|\breserva de emerg\w+/])) {
@@ -159,9 +147,7 @@ async function buildTemplateAnswer(message: string): Promise<string> {
       '- 4º: Rebalanceie 1-2 vezes por ano, vendendo o que valorizou e comprando o que caiu.',
       '',
       'Na plataforma, responda o questionário de perfil na ficha do cliente para receber sugestões personalizadas.',
-      '',
-      DISCLAIMER,
-    ].join('\n')
+      ].join('\n')
   }
 
   if (matchAny(m, [/\baposent|longo prazo|juros compostos|montante|acumular\b/])) {
@@ -174,9 +160,7 @@ async function buildTemplateAnswer(message: string): Promise<string> {
       '- Reavaliar a alocação a cada 5 anos, reduzindo risco conforme a data de uso se aproxima.',
       '',
       `Para planejar: defina o valor meta e o prazo, e então calcule o aporte mensal necessário (a plataforma pode ajudar com briefing por perfil).`,
-      '',
-      DISCLAIMER,
-    ].join('\n')
+      ].join('\n')
   }
 
   if (matchAny(m, [/\b(juros|inflaç|inflaca|selic|ipca|cdi|econ\w+)\b/])) {
@@ -187,9 +171,7 @@ async function buildTemplateAnswer(message: string): Promise<string> {
       '- IPCA+ protege o poder de compra no longo prazo (ótimo para apostas de longo prazo);',
       '- Inflação alta pressiona renda variável no curto prazo, mas empresas com pricing power costumam se recuperar;',
       '- Prefixed não são recomendados quando a inflação está subindo.',
-      '',
-      DISCLAIMER,
-    ].join('\n')
+      ].join('\n')
   }
 
   if (matchAny(m, [/\b(mercado hoje|em alta|em baixa|ganhadores|quedas|caindo|altas|resumo|situac\w+ dos mercados|noticias|notícias do mercado)\b/])) {
@@ -199,9 +181,7 @@ async function buildTemplateAnswer(message: string): Promise<string> {
       snap.text,
       '',
       'Quer aprofundar em algum ativo ou setor? Peça um briefing por ativo na aba "Briefings" ou pergunte aqui.',
-      '',
-      DISCLAIMER,
-    ].join('\n')
+      ].join('\n')
   }
 
   if (matchAny(m, [/\bo que (é|e|sao|são)\b|\bexplica\b|\bcomo funciona\b|\bsignific\w+\b|\bbásico\b|\bbasico\b/])) {
@@ -225,8 +205,6 @@ async function buildTemplateAnswer(message: string): Promise<string> {
     `Para contextualizar: ${snap.text}`,
     '',
     'Se precisar de detalhes, pergunte sobre renda fixa, ações, cripto, dividendos, diversificação ou peça um briefing por ativo na aba "Briefings".',
-    '',
-    DISCLAIMER,
   ].join('\n')
 }
 
@@ -246,7 +224,6 @@ export async function answerQuestion(message: string, history: ChatMessage[] = [
   const system = [
     'Você é o assistente de investimentos da plataforma Market Now.',
     'Responda em português, de forma clara, didática e com noções de gestão de risco.',
-    'Sempre inclua um disclaimer curto de que não é recomendação formal de investimento.',
     'Use os dados de mercado abaixo para contextualizar quando fizer sentido.',
     '',
     snapshot.text,
