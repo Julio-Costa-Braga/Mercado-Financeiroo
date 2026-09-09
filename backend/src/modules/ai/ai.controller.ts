@@ -13,6 +13,7 @@ import {
   fmtCompact,
 } from './ai.service'
 import { ONBOARDING_QUESTIONS } from './questions'
+import { answerQuestion } from './chat'
 
 // M20 - IA/Assistente
 // MVP: briefings gerados a partir dos dados da plataforma (template/data-driven).
@@ -336,6 +337,35 @@ export async function submitOnboarding(req: Request, res: Response, next: NextFu
       onboardingCompletedAt: updated.onboardingCompletedAt,
       sketch,
     })
+  } catch (err) {
+    next(err)
+  }
+}
+
+// ---------- Chat IA ----------
+
+export async function postChat(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { message, history } = req.body as {
+      message?: string
+      history?: Array<{ role: 'user' | 'assistant'; content: string }>
+    }
+    if (!message || !String(message).trim()) {
+      throw Errors.badRequest('Mensagem não pode ser vazia')
+    }
+
+    const { reply, ai, model } = await answerQuestion(String(message).trim(), Array.isArray(history) ? history : [])
+
+    const record = await registerAiRequest({
+      userId: req.user!.id,
+      type: 'chat',
+      question: String(message).trim(),
+      input: { message: String(message).trim(), history },
+      output: { text: reply, ai },
+      model: ai ? model : 'template',
+    })
+
+    res.json({ reply, ai, generatedAt: record.createdAt })
   } catch (err) {
     next(err)
   }
