@@ -65,6 +65,20 @@ const pt = {
   'nav.health': 'Observabilidade',
   'nav.platform': 'Plataforma de Mercado',
   'nav.logout': 'Sair',
+  'dashboard.title': 'Dashboard',
+  'dashboard.subtitle': 'Visão geral do mercado e da operação',
+  'dashboard.updated': 'Atualizado',
+  'dashboard.marketNow': 'Mercado agora',
+  'dashboard.topGainers': 'Maiores altas',
+  'dashboard.topLosers': 'Maiores quedas',
+  'dashboard.sectors': 'Setores',
+  'dashboard.clients': 'Clientes prioritários',
+  'dashboard.news': 'Notícias',
+  'dashboard.tasks': 'Tarefas do dia',
+  'dashboard.seeAll': 'Ver todos',
+  'dashboard.justNow': 'agora',
+  'dashboard.minAgo': 'há {{n}} min',
+  'dashboard.hourAgo': 'há {{n}} h',
 }
 
 export type Dict = {
@@ -133,6 +147,20 @@ const en: Dict = {
   'nav.health': 'Observability',
   'nav.platform': 'Market Platform',
   'nav.logout': 'Log out',
+  'dashboard.title': 'Dashboard',
+  'dashboard.subtitle': 'Market and operations overview',
+  'dashboard.updated': 'Updated',
+  'dashboard.marketNow': 'Market now',
+  'dashboard.topGainers': 'Top gainers',
+  'dashboard.topLosers': 'Top losers',
+  'dashboard.sectors': 'Sectors',
+  'dashboard.clients': 'Priority clients',
+  'dashboard.news': 'News',
+  'dashboard.tasks': "Today's tasks",
+  'dashboard.seeAll': 'See all',
+  'dashboard.justNow': 'now',
+  'dashboard.minAgo': '{{n}} min ago',
+  'dashboard.hourAgo': '{{n}} h ago',
 }
 
 const es: Dict = {
@@ -197,6 +225,20 @@ const es: Dict = {
   'nav.health': 'Observabilidad',
   'nav.platform': 'Plataforma de Mercados',
   'nav.logout': 'Salir',
+  'dashboard.title': 'Panel',
+  'dashboard.subtitle': 'Resumen del mercado y la operación',
+  'dashboard.updated': 'Actualizado',
+  'dashboard.marketNow': 'Mercado ahora',
+  'dashboard.topGainers': 'Mayores subidas',
+  'dashboard.topLosers': 'Mayores caídas',
+  'dashboard.sectors': 'Sectores',
+  'dashboard.clients': 'Clientes prioritarios',
+  'dashboard.news': 'Noticias',
+  'dashboard.tasks': 'Tareas del día',
+  'dashboard.seeAll': 'Ver todos',
+  'dashboard.justNow': 'ahora',
+  'dashboard.minAgo': 'hace {{n}} min',
+  'dashboard.hourAgo': 'hace {{n}} h',
 }
 
 const dictionaries: Record<Locale, Dict> = { pt, en, es }
@@ -220,7 +262,7 @@ function detectLocale(): Locale {
 interface I18nContextValue {
   locale: Locale
   setLocale: (l: Locale) => void
-  t: (key: keyof Dict) => string
+  t: (key: keyof Dict, vars?: Record<string, string | number>) => string
 }
 
 const I18nContext = createContext<I18nContextValue>({
@@ -243,7 +285,15 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const t = useCallback(
-    (key: keyof Dict) => dictionaries[locale][key] ?? pt[key],
+    (key: keyof Dict, vars?: Record<string, string | number>) => {
+      let str = dictionaries[locale][key] ?? pt[key]
+      if (vars && str) {
+        for (const [k, v] of Object.entries(vars)) {
+          str = str.replace(`{{${k}}}`, String(v))
+        }
+      }
+      return str
+    },
     [locale]
   )
 

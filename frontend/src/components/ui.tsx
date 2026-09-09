@@ -112,3 +112,29 @@ export function formatDateShort(date: string | Date | null | undefined) {
   if (!date) return '—'
   return new Intl.DateTimeFormat('pt-PT', { day: '2-digit', month: '2-digit' }).format(new Date(date))
 }
+
+export function timeAgo(date: string | Date | null | undefined, locale = 'pt'): string {
+  if (!date) return '—'
+  const then = new Date(date).getTime()
+  const diffSec = Math.max(0, Math.round((Date.now() - then) / 1000))
+  const rtf = new Intl.RelativeTimeFormat(locale === 'en' ? 'en' : locale === 'es' ? 'es' : 'pt', { numeric: 'auto' })
+  if (diffSec < 60) return rtf.format(-diffSec, 'second')
+  if (diffSec < 3600) return rtf.format(-Math.floor(diffSec / 60), 'minute')
+  if (diffSec < 86400) return rtf.format(-Math.floor(diffSec / 3600), 'hour')
+  return rtf.format(-Math.floor(diffSec / 86400), 'day')
+}
+
+export function formatClock(date: string | Date | null | undefined, locale = 'pt'): string {
+  if (!date) return '—'
+  const l = locale === 'en' ? 'en-US' : locale === 'es' ? 'es-ES' : 'pt-PT'
+  return new Intl.DateTimeFormat(l, { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date(date))
+}
+
+export function formatDateTime(date: string | Date | null | undefined, locale = 'pt'): string {
+  if (!date) return '—'
+  const l = locale === 'en' ? 'en-US' : locale === 'es' ? 'es-ES' : 'pt-PT'
+  return new Intl.DateTimeFormat(l, {
+    day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  }).format(new Date(date))
+}
