@@ -151,13 +151,13 @@ async function getExternalPrice(
           marketCap: coin.marketCap,
         }
       }
-      // Fallback Coinbase
-      const cb = await fetchCoinbase(asset.ticker.toUpperCase())
-      if (cb) return { price: cb }
-      // Yahoo
+      // Yahoo traz price + previousClose (variacao diaria correta) e tem rate limit amigo
       const y = await fetchYahoo(`${asset.ticker.toUpperCase()}-USD`)
       if (y) return y
-      // Binance
+      // Coinbase spot (sem variacao diaria)
+      const cb = await fetchCoinbase(asset.ticker.toUpperCase())
+      if (cb) return { price: cb }
+      // Binance 24h ticker
       const bi = await fetchBinance(asset.ticker.toUpperCase())
       if (bi) return { price: bi.price, changePct1D: bi.changePct1D }
       return null
@@ -219,7 +219,10 @@ export async function updateMarketQuotes(): Promise<{ updated: number; simulated
 
       if (ext) {
         price = ext.price
-        const refPct = ext.changePct1D ?? (prevClose && prevClose > 0 && last?.price ? ((price - prevClose) / prevClose) * 100 : 0)
+        // Usa sempre a variacao diaria real da fonte; se a fonte (ex.: Coinbase
+        // spot) nao fornecer, preserva a ultima variacao real conhecida (cache)
+        // em vez de recalcular contra prevClose de seed desatualizado.
+        const refPct = ext.changePct1D ?? cached?.changePct1D ?? last?.changePct1D ?? 0
         changePct1D = refPct
 
         if (last) {
@@ -242,7 +245,10 @@ export async function updateMarketQuotes(): Promise<{ updated: number; simulated
         if (ext.prevClose != null) prevClose = ext.prevClose
         if (ext.volume != null) volume = BigInt(Math.round(ext.volume))
         if (ext.marketCap != null) marketCap = BigInt(Math.round(ext.marketCap))
-        EXT_CACHE.set(asset.id, { price, changePct1D })
+        EXT_CACHE.set(asset.id, {
+          price,
+          changePct1D: ext.changePct1D ?? cached?.changePct1D ?? null,
+        })
         external++
       } else {
         // Simulacao ancorada no ultimo preco real da sessao
