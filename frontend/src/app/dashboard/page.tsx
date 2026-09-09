@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Main } from '@/components/layout'
-import { Card, ChangeBadge, StatusBadge, Spinner, formatPrice, timeAgo } from '@/components/ui'
+import { Card, ChangeBadge, StatusBadge, Spinner, formatPrice, timeAgo, PageHeader, Button } from '@/components/ui'
 import { api } from '@/lib/api'
 import { useI18n } from '@/lib/i18n'
 
@@ -106,37 +106,33 @@ export default function DashboardPage() {
   return (
     <Main>
       {/* Header */}
-      <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-white">{t('dashboard.title')}</h1>
-          <p className="text-sm text-gray-500 mt-0.5">{t('dashboard.subtitle')}</p>
-        </div>
-        <div className="flex items-center gap-3">
-          {marketUpdated && (
-            <div className="flex items-center gap-2 bg-market-card border border-market-border rounded-lg px-3 py-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <div className="text-xs">
-                <p className="text-gray-300 font-medium">
-                  {t('dashboard.updated')} {timeAgo(marketUpdated, locale)}
-                </p>
-                <p className="text-gray-600 text-[10px] mt-0.5">
-                  {t('dashboard.marketNow')} · {timeAgo(lastFetched || new Date(), locale)}
-                </p>
+      <PageHeader
+        title={t('dashboard.title')}
+        subtitle={t('dashboard.subtitle')}
+        actions={
+          <>
+            {marketUpdated && (
+              <div className="flex items-center gap-2 bg-market-card border border-market-border rounded-xl px-4 py-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <div className="text-xs">
+                  <p className="text-gray-300 font-medium">
+                    {t('dashboard.updated')} {timeAgo(marketUpdated, locale)}
+                  </p>
+                  <p className="text-gray-600 text-[10px] mt-0.5">
+                    {t('dashboard.marketNow')} · {timeAgo(lastFetched || new Date(), locale)}
+                  </p>
+                </div>
               </div>
-            </div>
-          )}
-          <button
-            onClick={() => load(true)}
-            disabled={refreshing}
-            className="flex items-center gap-2 bg-market-accent hover:bg-blue-700 disabled:opacity-60 text-white text-xs font-medium px-4 py-2 rounded-lg transition-all"
-          >
-            <svg className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            {refreshing ? '...' : '↻'}
-          </button>
-        </div>
-      </header>
+            )}
+            <Button onClick={() => load(true)} disabled={refreshing} variant="ghost">
+              <svg className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              {refreshing ? '...' : '↻'}
+            </Button>
+          </>
+        }
+      />
 
       {error && (
         <div className="mb-4 flex items-center gap-2 text-xs text-market-down bg-market-down/10 border border-market-down/20 rounded-lg px-3 py-2.5">

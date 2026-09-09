@@ -1,7 +1,7 @@
 'use client'
 import React, { useCallback, useEffect, useState } from 'react'
 import { Main } from '@/components/layout'
-import { Card, Spinner, StatusBadge, formatDate } from '@/components/ui'
+import { Button, Card, EmptyState, PageHeader, Spinner, StatusBadge, Table, formatDate, inputCls, selectCls } from '@/components/ui'
 import { api } from '@/lib/api'
 
 interface AdminUser {
@@ -78,89 +78,82 @@ export default function AdminPage() {
 
   return (
     <Main>
-      <header className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-white">Administração</h1>
-          <p className="text-sm text-gray-500">Usuários, papéis e permissões</p>
-        </div>
-        <button onClick={() => setShowForm(!showForm)} className="bg-market-accent text-black text-sm font-medium px-4 py-2 rounded-md">
-          {showForm ? 'Cancelar' : '+ Novo usuário'}
-        </button>
-      </header>
+      <PageHeader
+        title="Administração"
+        subtitle="Usuários, papéis e permissões"
+        actions={
+          <Button onClick={() => setShowForm(!showForm)}>
+            {showForm ? 'Cancelar' : (
+              <>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.7}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14M5 12h14" />
+                </svg>
+                Novo usuário
+              </>
+            )}
+          </Button>
+        }
+      />
 
       {message && <p className="text-xs text-market-accent mb-3">{message}</p>}
 
       {showForm && (
         <Card className="mb-4" title="Novo usuário">
           <form onSubmit={handleCreate} className="grid grid-cols-1 md:grid-cols-5 gap-3">
-            <input name="name" placeholder="Nome" required className="bg-market-bg border border-market-border rounded-md px-3 py-2 text-sm text-gray-200" />
-            <input name="email" type="email" placeholder="E-mail" required className="bg-market-bg border border-market-border rounded-md px-3 py-2 text-sm text-gray-200" />
-            <input name="password" placeholder="Senha" defaultValue="Mudar123!" className="bg-market-bg border border-market-border rounded-md px-3 py-2 text-sm text-gray-200" />
-            <select name="role" className="bg-market-bg border border-market-border rounded-md px-3 py-2 text-sm text-gray-300">
+            <input name="name" placeholder="Nome" required className={inputCls} />
+            <input name="email" type="email" placeholder="E-mail" required className={inputCls} />
+            <input name="password" placeholder="Senha" defaultValue="Mudar123!" className={inputCls} />
+            <select name="role" className={selectCls}>
               {ROLES.map((r) => (
                 <option key={r} value={r}>{r}</option>
               ))}
             </select>
             <div className="flex gap-2">
-              <input name="team" placeholder="Time" className="flex-1 bg-market-bg border border-market-border rounded-md px-3 py-2 text-sm text-gray-200" />
-              <button className="bg-market-accent text-black text-sm px-3 rounded-md">Criar</button>
+              <input name="team" placeholder="Time" className={`${inputCls} flex-1`} />
+              <Button type="submit" size="sm">Criar</Button>
             </div>
           </form>
         </Card>
       )}
 
       <div className="mb-4">
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar usuários..."
-          className="w-72 bg-market-card border border-market-border rounded-md px-3 py-2 text-sm text-gray-200"
-        />
+        <div className="w-72">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar usuários..."
+            className={inputCls}
+          />
+        </div>
       </div>
 
       {loading ? (
         <Spinner />
       ) : (
         <Card>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-market-border text-left">
-                  <th className="px-3 py-2 text-xs font-medium text-gray-400">Usuário</th>
-                  <th className="px-3 py-2 text-xs font-medium text-gray-400">Papel</th>
-                  <th className="px-3 py-2 text-xs font-medium text-gray-400">Time</th>
-                  <th className="px-3 py-2 text-xs font-medium text-gray-400">Status</th>
-                  <th className="px-3 py-2 text-xs font-medium text-gray-400">Último login</th>
-                  <th className="px-3 py-2 text-xs font-medium text-gray-400"></th>
+          {users.length === 0 ? (
+            <EmptyState title="Nenhum usuário" description="Crie um novo usuário ou ajuste a busca." />
+          ) : (
+            <Table headers={['Usuário', 'Papel', 'Time', 'Status', 'Último login', '']}>
+              {users.map((u) => (
+                <tr key={u.id}>
+                  <td className="px-3 py-2.5">
+                    <p className="text-gray-200 font-medium">{u.name}</p>
+                    <p className="text-xs text-gray-500">{u.email}</p>
+                  </td>
+                  <td className="px-3 py-2.5 text-gray-400">{u.role}</td>
+                  <td className="px-3 py-2.5 text-gray-400">{u.team || '—'}</td>
+                  <td className="px-3 py-2.5"><StatusBadge status={u.status} /></td>
+                  <td className="px-3 py-2.5 text-gray-400 whitespace-nowrap">{formatDate(u.lastLoginAt)}</td>
+                  <td className="px-3 py-2.5 text-right">
+                    <Button variant="ghost" size="sm" onClick={() => toggleStatus(u)}>
+                      {u.status === 'ACTIVE' ? 'Desativar' : 'Ativar'}
+                    </Button>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-market-border">
-                {users.map((u) => (
-                  <tr key={u.id}>
-                    <td className="px-3 py-2.5">
-                      <p className="text-gray-200 font-medium">{u.name}</p>
-                      <p className="text-xs text-gray-500">{u.email}</p>
-                    </td>
-                    <td className="px-3 py-2.5 text-gray-400">{u.role}</td>
-                    <td className="px-3 py-2.5 text-gray-400">{u.team || '—'}</td>
-                    <td className="px-3 py-2.5"><StatusBadge status={u.status} /></td>
-                    <td className="px-3 py-2.5 text-gray-400 whitespace-nowrap">{formatDate(u.lastLoginAt)}</td>
-                    <td className="px-3 py-2.5 text-right">
-                      <button
-                        onClick={() => toggleStatus(u)}
-                        className="text-xs text-market-accent hover:opacity-80"
-                      >
-                        {u.status === 'ACTIVE' ? 'Desativar' : 'Ativar'}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {users.length === 0 && (
-                  <tr><td colSpan={6} className="px-3 py-6 text-center text-gray-500">Nenhum usuário.</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </Table>
+          )}
         </Card>
       )}
     </Main>

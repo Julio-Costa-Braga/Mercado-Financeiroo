@@ -8,6 +8,8 @@ dist/
 .next/
 out/
 build/
+frontend/tsconfig.tsbuildinfo
+*.tsbuildinfo
 
 # Env - nunca commitar segredos
 .env

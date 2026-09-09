@@ -1,6 +1,7 @@
 'use client'
 import React, { useState } from 'react'
 import Link from 'next/link'
+import { Button, inputCls } from '@/components/ui'
 import { api } from '@/lib/api'
 
 export default function ForgotPasswordPage() {
@@ -26,37 +27,34 @@ export default function ForgotPasswordPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-market-bg">
       <div className="w-full max-w-md">
-        <div className="bg-market-card border border-market-border rounded-lg p-6 shadow-xl">
-          <h1 className="text-lg font-semibold text-gray-200 mb-2">Recuperar senha</h1>
+        <div className="bg-market-card/60 backdrop-blur-sm border border-market-border rounded-2xl p-6 shadow-lg shadow-black/10">
+          <h1 className="text-xl font-bold text-white mb-1">Recuperar senha</h1>
           {!sent ? (
             <form onSubmit={handleSubmit} className="space-y-4">
               <p className="text-sm text-gray-500">
                 Informe seu e-mail e enviaremos um link para criar uma nova senha.
               </p>
               <div>
-                <label className="block text-xs font-medium text-gray-400 mb-1">E-mail</label>
+                <label className="block text-xs font-medium text-gray-400 mb-1.5">E-mail</label>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-market-bg border border-market-border rounded-md px-3 py-2 text-sm text-gray-200"
+                  className={inputCls}
                   required
                   autoFocus
                 />
               </div>
               {error && <p className="text-xs text-market-down">{error}</p>}
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-market-accent hover:opacity-90 text-white font-medium py-2 rounded-md text-sm disabled:opacity-50"
-              >
+              <Button type="submit" disabled={loading} className="w-full">
                 {loading ? 'Enviando...' : 'Enviar link'}
-              </button>
+              </Button>
             </form>
           ) : (
-            <div className="text-center">
-              <p className="text-sm text-gray-300 mb-2">Link de recuperação enviado!</p>
-              <p className="text-xs text-gray-500 mb-4">
+            <div className="text-center py-4">
+              <div className="text-3xl mb-3 opacity-60">📧</div>
+              <p className="text-sm font-medium text-gray-200 mb-2">Link de recuperação enviado!</p>
+              <p className="text-xs text-gray-500">
                 Se houver uma conta com {email}, você receberá um link por e-mail.
               </p>
             </div>

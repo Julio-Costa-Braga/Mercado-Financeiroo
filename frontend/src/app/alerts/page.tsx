@@ -1,7 +1,7 @@
 'use client'
 import React, { useCallback, useEffect, useState } from 'react'
 import { Main } from '@/components/layout'
-import { Card, Spinner, StatusBadge, formatDate } from '@/components/ui'
+import { Button, Card, EmptyState, Field, PageHeader, Spinner, formatDate, inputCls, selectCls } from '@/components/ui'
 import { api } from '@/lib/api'
 
 interface Alert {
@@ -75,42 +75,36 @@ export default function AlertsPage() {
 
   return (
     <Main>
-      <header className="mb-6">
-        <h1 className="text-xl font-bold text-white">Alertas</h1>
-        <p className="text-sm text-gray-500">Regras de mercado, preço e clientes</p>
-      </header>
+      <PageHeader title="Alertas" subtitle="Regras de mercado, preço e clientes" />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card title="Novo alerta">
           <form onSubmit={createAlert} className="space-y-3">
-            <div>
-              <label className="block text-xs text-gray-400 mb-1">Tipo</label>
-              <select className="w-full bg-market-bg border border-market-border rounded-md px-3 py-2 text-sm" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
+            <Field label="Tipo">
+              <select className={selectCls} value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
                 <option value="PRICE">Price Alert</option>
                 <option value="MARKET">Market Alert</option>
                 <option value="VOLUME">Volume Alert</option>
                 <option value="CLIENT">Client Alert</option>
               </select>
-            </div>
+            </Field>
 
             {(form.type === 'MARKET' || form.type === 'VOLUME') && (
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">Condição</label>
-                <select className="w-full bg-market-bg border border-market-border rounded-md px-3 py-2 text-sm" value={form.condition} onChange={(e) => setForm({ ...form, condition: e.target.value })}>
+              <Field label="Condição">
+                <select className={selectCls} value={form.condition} onChange={(e) => setForm({ ...form, condition: e.target.value })}>
                   <option value="<">Menor que</option>
                   <option value=">">Maior que</option>
                   <option value="drop3x">Queda &gt; 3%</option>
                 </select>
-              </div>
+              </Field>
             )}
 
-            <div>
-              <label className="block text-xs text-gray-400 mb-1">Buscar ativo</label>
+            <Field label="Buscar ativo">
               <input
                 value={searchAsset}
                 onChange={(e) => searchAssets(e.target.value)}
                 placeholder="ex: BTC, NVDA"
-                className="w-full bg-market-bg border border-market-border rounded-md px-3 py-2 text-sm"
+                className={inputCls}
               />
               {assetResults.length > 0 && (
                 <div className="mt-1 space-y-0.5">
@@ -126,14 +120,13 @@ export default function AlertsPage() {
                   ))}
                 </div>
               )}
-            </div>
+            </Field>
 
-            <div>
-              <label className="block text-xs text-gray-400 mb-1">Limite</label>
-              <input type="number" step="any" className="w-full bg-market-bg border border-market-border rounded-md px-3 py-2 text-sm" value={form.threshold} onChange={(e) => setForm({ ...form, threshold: e.target.value })} placeholder="100" />
-            </div>
+            <Field label="Limite">
+              <input type="number" step="any" className={inputCls} value={form.threshold} onChange={(e) => setForm({ ...form, threshold: e.target.value })} placeholder="100" />
+            </Field>
 
-            <button className="w-full bg-market-accent text-white text-sm py-2 rounded-md hover:opacity-90">Criar alerta</button>
+            <Button type="submit" className="w-full">Criar alerta</Button>
           </form>
         </Card>
 
@@ -144,7 +137,7 @@ export default function AlertsPage() {
             ) : (
               <div className="space-y-2">
                 {alerts.map((a) => (
-                  <div key={a.id} className="bg-market-bg border border-market-border rounded-md p-3 flex items-center justify-between">
+                  <div key={a.id} className="bg-market-bg/70 border border-market-border rounded-xl p-3 flex items-center justify-between">
                     <div>
                       <div className="flex items-center gap-2">
                         <span className={`text-xs px-2 py-0.5 rounded ${typeStyles[a.type] || 'bg-gray-500/10 text-gray-400'}`}>{a.type}</span>
@@ -155,12 +148,12 @@ export default function AlertsPage() {
                       </p>
                       <p className="text-xs text-gray-600">Criado em {formatDate(a.createdAt)}</p>
                     </div>
-                    <button onClick={() => toggleAlert(a)} className="text-xs text-market-accent hover:underline">
+                    <Button variant="ghost" size="sm" onClick={() => toggleAlert(a)}>
                       {a.status === 'ACTIVE' ? 'Desativar' : 'Ativar'}
-                    </button>
+                    </Button>
                   </div>
                 ))}
-                {alerts.length === 0 && <p className="text-sm text-gray-500 text-center py-6">Nenhum alerta criado.</p>}
+                {alerts.length === 0 && <EmptyState title="Nenhum alerta" description="Crie um alerta para acompanhar o mercado." />}
               </div>
             )}
           </Card>

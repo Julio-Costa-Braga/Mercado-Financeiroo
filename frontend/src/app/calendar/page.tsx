@@ -1,7 +1,7 @@
 'use client'
 import React, { useCallback, useEffect, useState } from 'react'
 import { Main } from '@/components/layout'
-import { Card, Spinner } from '@/components/ui'
+import { Card, EmptyState, PageHeader, Spinner, inputCls, selectCls } from '@/components/ui'
 import { api } from '@/lib/api'
 
 interface EconEvent {
@@ -57,22 +57,20 @@ export default function CalendarPage() {
 
   return (
     <Main>
-      <header className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-white">Calendário Econômico</h1>
-          <p className="text-sm text-gray-500">Eventos macro por dia</p>
-        </div>
-        <span className="text-xs text-gray-500">Hoje: {new Date().toLocaleDateString('pt-PT')}</span>
-      </header>
+      <PageHeader
+        title="Calendário Econômico"
+        subtitle="Eventos macro por dia"
+        actions={<span className="text-xs text-gray-500">Hoje: {new Date().toLocaleDateString('pt-PT')}</span>}
+      />
 
       <div className="flex gap-3 mb-4">
         <input
           type="date"
           value={day || today}
           onChange={(e) => setDay(e.target.value)}
-          className="bg-market-card border border-market-border rounded-md px-3 py-2 text-sm text-gray-300"
+          className={`${inputCls} flex-1 max-w-64`}
         />
-        <select value={impact} onChange={(e) => setImpact(e.target.value)} className="bg-market-card border border-market-border rounded-md px-3 py-2 text-sm text-gray-300">
+        <select value={impact} onChange={(e) => setImpact(e.target.value)} className={`${selectCls} max-w-44`}>
           <option value="">Impacto</option>
           <option value="HIGH">Alto</option>
           <option value="MEDIUM">Médio</option>
@@ -85,7 +83,7 @@ export default function CalendarPage() {
       ) : (
         <div className="space-y-4">
           {Object.keys(grouped).length === 0 && (
-            <p className="text-sm text-gray-500 text-center py-8">Nenhum evento para o período.</p>
+            <EmptyState title="Nenhum evento" description="Nenhum evento para o período selecionado." />
           )}
           {Object.entries(grouped).map(([date, evts]) => (
             <div key={date}>
