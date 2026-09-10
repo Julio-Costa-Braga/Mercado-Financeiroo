@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express'
 import { verifyToken } from '../utils/jwt'
 import { Errors } from '../utils/errors'
 import { prisma } from '../config/prisma'
+import { effectiveModules } from '../config/modules'
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -78,4 +79,31 @@ export function requireTeam(req: Request, _res: Response, next: NextFunction) {
     throw Errors.forbidden()
   }
   next()
+}
+
+// Restringe a area por modulo configurado no usuario (User.modules).
+// Deve ser usado depois do authenticate. Se o usuario nao tem o modulo,
+// retorna 403 mesmo que tenha o papel correto.
+export function requireModules(...modules: string[]) {
+  return async (req: Request, _res: Response, next: NextFunction) => {
+    try {
+      if (!req.user) {
+        return next(Errors.unauthorized())
+      }
+      const dbUser = await prisma.user.findUnique({
+        where: { id: req.user.id },
+        select: { role: true, modules: true },
+      })
+      if (!dbUser) {
+        return next(Errors.unauthorized())
+      }
+      const eff = effectiveModules(dbUser)
+      if (!modules.some((m) => eff.includes(m))) {
+        return next(Errors.forbidden())
+      }
+      next()
+    } catch (err) {
+      next(err)
+    }
+  }
 }

@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { connectSocket, getSocket, disconnectSocket } from '@/lib/socket'
 import { useI18n } from '@/lib/i18n'
+import { effectiveModules } from '@/lib/modules'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import ChatWidget from '@/components/ChatWidget'
 
@@ -13,6 +14,7 @@ interface User {
   email: string
   name: string
   role: string
+  modules?: string[]
 }
 
 function Icon({ d, className = 'w-4 h-4' }: { d: string; className?: string }) {
@@ -49,48 +51,49 @@ interface NavItem {
   href: string
   labelKey: string
   icon: keyof typeof ICONS
+  module: string
 }
 
 const TEAM_NAV: NavItem[] = [
-  { href: '/dashboard', labelKey: 'nav.dashboard', icon: 'dashboard' },
-  { href: '/market/stocks', labelKey: 'nav.markets', icon: 'market' },
-  { href: '/research', labelKey: 'nav.research', icon: 'research' },
-  { href: '/news', labelKey: 'nav.news', icon: 'news' },
-  { href: '/macro', labelKey: 'nav.macro', icon: 'macro' },
-  { href: '/calendar', labelKey: 'nav.calendar', icon: 'calendar' },
+  { href: '/dashboard', labelKey: 'nav.dashboard', icon: 'dashboard', module: 'dashboard' },
+  { href: '/market/stocks', labelKey: 'nav.markets', icon: 'market', module: 'market' },
+  { href: '/research', labelKey: 'nav.research', icon: 'research', module: 'research' },
+  { href: '/news', labelKey: 'nav.news', icon: 'news', module: 'news' },
+  { href: '/macro', labelKey: 'nav.macro', icon: 'macro', module: 'macro' },
+  { href: '/calendar', labelKey: 'nav.calendar', icon: 'calendar', module: 'calendar' },
 ]
 
 const CRM_NAV: NavItem[] = [
-  { href: '/clients', labelKey: 'nav.clients', icon: 'clients' },
-  { href: '/vendas', labelKey: 'nav.sales', icon: 'clients' },
-  { href: '/retention', labelKey: 'nav.retention', icon: 'retention' },
-  { href: '/deposits', labelKey: 'nav.deposits', icon: 'deposits' },
-  { href: '/tasks', labelKey: 'nav.tasks', icon: 'tasks' },
-  { href: '/reports', labelKey: 'nav.reports', icon: 'reports' },
-  { href: '/assistant', labelKey: 'nav.assistant', icon: 'assistant' },
+  { href: '/clients', labelKey: 'nav.clients', icon: 'clients', module: 'clients' },
+  { href: '/vendas', labelKey: 'nav.sales', icon: 'clients', module: 'sales' },
+  { href: '/retention', labelKey: 'nav.retention', icon: 'retention', module: 'retention' },
+  { href: '/deposits', labelKey: 'nav.deposits', icon: 'deposits', module: 'deposits' },
+  { href: '/tasks', labelKey: 'nav.tasks', icon: 'tasks', module: 'tasks' },
+  { href: '/reports', labelKey: 'nav.reports', icon: 'reports', module: 'reports' },
+  { href: '/assistant', labelKey: 'nav.assistant', icon: 'assistant', module: 'assistant' },
 ]
 
 const CLIENT_NAV: NavItem[] = [
-  { href: '/portal', labelKey: 'nav.portal', icon: 'dashboard' },
-  { href: '/portal/deposits', labelKey: 'nav.deposits', icon: 'deposits' },
-  { href: '/portal/documents', labelKey: 'nav.documents', icon: 'audit' },
-  { href: '/market/stocks', labelKey: 'nav.markets', icon: 'market' },
-  { href: '/news', labelKey: 'nav.news', icon: 'news' },
-  { href: '/alerts', labelKey: 'nav.alerts', icon: 'alerts' },
-  { href: '/assistant', labelKey: 'nav.assistant', icon: 'assistant' },
+  { href: '/portal', labelKey: 'nav.portal', icon: 'dashboard', module: 'portal' },
+  { href: '/portal/deposits', labelKey: 'nav.deposits', icon: 'deposits', module: 'portal' },
+  { href: '/portal/documents', labelKey: 'nav.documents', icon: 'audit', module: 'portal' },
+  { href: '/market/stocks', labelKey: 'nav.markets', icon: 'market', module: 'portal' },
+  { href: '/news', labelKey: 'nav.news', icon: 'news', module: 'portal' },
+  { href: '/alerts', labelKey: 'nav.alerts', icon: 'alerts', module: 'portal' },
+  { href: '/assistant', labelKey: 'nav.assistant', icon: 'assistant', module: 'portal' },
 ]
 
 const WATCHLIST_NAV: NavItem[] = [
-  { href: '/watchlist', labelKey: 'nav.watchlist', icon: 'watchlist' },
-  { href: '/alerts', labelKey: 'nav.alerts', icon: 'alerts' },
+  { href: '/watchlist', labelKey: 'nav.watchlist', icon: 'watchlist', module: 'watchlist' },
+  { href: '/alerts', labelKey: 'nav.alerts', icon: 'alerts', module: 'alerts' },
 ]
 
 const ADMIN_NAV: NavItem[] = [
-  { href: '/notifications', labelKey: 'nav.notifications', icon: 'notifications' },
-  { href: '/integrations', labelKey: 'nav.integrations', icon: 'integrations' },
-  { href: '/admin', labelKey: 'nav.admin', icon: 'admin' },
-  { href: '/audit', labelKey: 'nav.audit', icon: 'audit' },
-  { href: '/health', labelKey: 'nav.health', icon: 'health' },
+  { href: '/notifications', labelKey: 'nav.notifications', icon: 'notifications', module: 'notifications' },
+  { href: '/integrations', labelKey: 'nav.integrations', icon: 'integrations', module: 'integrations' },
+  { href: '/admin', labelKey: 'nav.admin', icon: 'admin', module: 'admin' },
+  { href: '/audit', labelKey: 'nav.audit', icon: 'audit', module: 'audit' },
+  { href: '/health', labelKey: 'nav.health', icon: 'health', module: 'health' },
 ]
 
 const PATH_TITLES: Array<{ prefix: string; labelKey: string }> = [
@@ -296,6 +299,10 @@ export function Sidebar() {
   const isClient = user?.role === 'CLIENT'
   const isManager = user?.role === 'ADMIN' || user?.role === 'MANAGER'
 
+  const mods = effectiveModules(user?.role || '', user?.modules)
+  const can = (item: NavItem) => mods.includes(item.module)
+  const filterNav = (items: NavItem[]) => items.filter(can)
+
   return (
     <aside className="w-60 bg-market-card/40 backdrop-blur-sm border-r border-market-border flex flex-col h-screen sticky top-0 shrink-0">
       <div className="py-5 px-4 border-b border-market-border">
@@ -309,9 +316,9 @@ export function Sidebar() {
           </>
         ) : (
           <>
-            <SidebarSection title={t('nav.section.markets')} items={TEAM_NAV} pathname={pathname} />
-            <SidebarSection title={t('nav.section.crm')} items={CRM_NAV} pathname={pathname} />
-            <SidebarSection items={WATCHLIST_NAV} pathname={pathname} />
+            <SidebarSection title={t('nav.section.markets')} items={filterNav(TEAM_NAV)} pathname={pathname} />
+            <SidebarSection title={t('nav.section.crm')} items={filterNav(CRM_NAV)} pathname={pathname} />
+            <SidebarSection items={filterNav(WATCHLIST_NAV)} pathname={pathname} />
           </>
         )}
       </nav>
@@ -319,7 +326,7 @@ export function Sidebar() {
       <div className="p-3 border-t border-market-border">
         <div className="border-b border-market-border pb-2 mb-2">
           {(isManager || isClient) && (
-            <SidebarSection items={ADMIN_NAV} pathname={pathname} />
+            <SidebarSection items={filterNav(ADMIN_NAV)} pathname={pathname} />
           )}
         </div>
         {user && (

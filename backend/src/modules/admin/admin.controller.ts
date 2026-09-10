@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express'
 import bcrypt from 'bcryptjs'
 import { prisma } from '../../config/prisma'
 import { Errors } from '../../utils/errors'
+import { MODULES, effectiveModules } from '../../config/modules'
 
 // M24 - Administração
 
@@ -11,6 +12,7 @@ const USER_SELECT = {
   name: true,
   role: true,
   team: true,
+  modules: true,
   status: true,
   timezone: true,
   locale: true,
@@ -18,6 +20,16 @@ const USER_SELECT = {
   mfaEnabled: true,
   lastLoginAt: true,
   createdAt: true,
+}
+
+function sanitizeModules(raw: unknown): string[] | undefined {
+  if (raw === undefined) return undefined
+  const arr = Array.isArray(raw) ? raw.filter((m) => typeof m === 'string') : []
+  return arr.filter((m) => (MODULES as readonly string[]).includes(m))
+}
+
+function withEffective(u: { role: string; modules?: unknown }) {
+  return { ...u, modules: effectiveModules(u) }
 }
 
 export async function listUsers(req: Request, res: Response, next: NextFunction) {
@@ -47,7 +59,7 @@ export async function listUsers(req: Request, res: Response, next: NextFunction)
       }),
     ])
 
-    res.json({ users, total })
+    res.json({ users: users.map(withEffective), total })
   } catch (err) {
     next(err)
   }
@@ -55,14 +67,24 @@ export async function listUsers(req: Request, res: Response, next: NextFunction)
 
 export async function createUser(req: Request, res: Response, next: NextFunction) {
   try {
-    const { email, password, name, role, team, timezone, locale, currency } = req.body
+    const { email, password, name, role, team, timezone, locale, currency, modules } = req.body
 
     const existing = await prisma.user.findUnique({ where: { email: email.toLowerCase() } })
     if (existing) throw Errors.conflict('E-mail já cadastrado')
 
     const passwordHash = await bcrypt.hash(password || 'Mudar123!', 10)
     const user = await prisma.user.create({
-      data: { email: email.toLowerCase(), passwordHash, name, role, team, timezone, locale, currency },
+      data: {
+        email: email.toLowerCase(),
+        passwordHash,
+        name,
+        role,
+        team,
+        timezone,
+        locale,
+        currency,
+        modules: sanitizeModules(modules),
+      },
       select: USER_SELECT,
     })
 
@@ -70,7 +92,7 @@ export async function createUser(req: Request, res: Response, next: NextFunction
       data: { userId: req.user!.id, action: 'admin.user.created', entity: 'User', entityId: user.id },
     })
 
-    res.status(201).json({ user })
+    res.status(201).json({ user: withEffective(user) })
   } catch (err) {
     next(err)
   }
@@ -79,7 +101,7 @@ export async function createUser(req: Request, res: Response, next: NextFunction
 export async function updateUser(req: Request, res: Response, next: NextFunction) {
   try {
     const { id } = req.params
-    const { name, role, team, status, timezone, locale, currency, password } = req.body
+    const { name, role, team, status, timezone, locale, currency, password, modules } = req.body
 
     const existing = await prisma.user.findUnique({ where: { id } })
     if (!existing) throw Errors.notFound('Usuário não encontrado')
@@ -94,6 +116,7 @@ export async function updateUser(req: Request, res: Response, next: NextFunction
         timezone,
         locale,
         currency,
+        modules: sanitizeModules(modules),
         passwordHash: password ? await bcrypt.hash(password, 10) : existing.passwordHash,
       },
       select: USER_SELECT,
@@ -105,12 +128,12 @@ export async function updateUser(req: Request, res: Response, next: NextFunction
         action: 'admin.user.updated',
         entity: 'User',
         entityId: id,
-        before: { role: existing.role, status: existing.status },
-        after: { role: user.role, status: user.status },
+        before: { role: existing.role, status: existing.status, modules: existing.modules },
+        after: { role: user.role, status: user.status, modules: user.modules },
       },
     })
 
-    res.json({ user })
+    res.json({ user: withEffective(user) })
   } catch (err) {
     next(err)
   }

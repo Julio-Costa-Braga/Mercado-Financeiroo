@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { authenticate } from '../../middleware/auth'
+import { authenticate, requireModules } from '../../middleware/auth'
 import {
   listAlerts,
   createAlert,
@@ -10,10 +10,10 @@ import {
 
 const router = Router()
 
-router.get('/', authenticate, listAlerts)
-router.post('/', authenticate, createAlert)
-router.put('/:id', authenticate, updateAlert)
-router.delete('/:id', authenticate, deleteAlert)
-router.post('/deliveries/:id/read', authenticate, markAlertRead)
+router.get('/', authenticate, requireModules('alerts'), listAlerts)
+router.post('/', authenticate, requireModules('alerts'), createAlert)
+router.put('/:id', authenticate, requireModules('alerts'), updateAlert)
+router.delete('/:id', authenticate, requireModules('alerts'), deleteAlert)
+router.post('/deliveries/:id/read', authenticate, requireModules('alerts'), markAlertRead)
 
 export default router

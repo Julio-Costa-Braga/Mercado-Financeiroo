@@ -1,9 +1,9 @@
 import { Router } from 'express'
-import { authenticate } from '../../middleware/auth'
+import { authenticate, requireModules } from '../../middleware/auth'
 import { getAuditLogs } from './audit.controller'
 
 const router = Router()
 
-router.get('/', authenticate, getAuditLogs)
+router.get('/', authenticate, requireModules('audit'), getAuditLogs)
 
 export default router

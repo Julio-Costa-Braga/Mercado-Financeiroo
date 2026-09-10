@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { authenticate } from '../../middleware/auth'
+import { authenticate, requireModules } from '../../middleware/auth'
 import {
   getWatchlists,
   createWatchlist,
@@ -10,10 +10,10 @@ import {
 
 const router = Router()
 
-router.get('/', authenticate, getWatchlists)
-router.post('/', authenticate, createWatchlist)
-router.post('/:id/assets', authenticate, addAsset)
-router.delete('/:id/assets/:assetId', authenticate, removeAsset)
-router.put('/:id/assets/reorder', authenticate, reorderAssets)
+router.get('/', authenticate, requireModules('watchlist'), getWatchlists)
+router.post('/', authenticate, requireModules('watchlist'), createWatchlist)
+router.post('/:id/assets', authenticate, requireModules('watchlist'), addAsset)
+router.delete('/:id/assets/:assetId', authenticate, requireModules('watchlist'), removeAsset)
+router.put('/:id/assets/reorder', authenticate, requireModules('watchlist'), reorderAssets)
 
 export default router

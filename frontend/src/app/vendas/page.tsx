@@ -265,7 +265,7 @@ export default function SalesPage() {
   const [data, setData] = useState<SalesKanbanData | null>(null)
   const [metrics, setMetrics] = useState<SalesMetrics | null>(null)
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<'kanban' | 'dashboard'>('kanban')
+  const [tab, setTab] = useState<'kanban' | 'dashboard' | 'base'>('kanban')
   const [dragged, setDragged] = useState<{ id: string; from: StageKey } | null>(null)
   const [over, setOver] = useState<StageKey | null>(null)
   const [moving, setMoving] = useState(false)
@@ -375,6 +375,11 @@ export default function SalesPage() {
   const pipeline =
     (counts.assigned || 0) + (counts.contacted || 0)
 
+  const BASE_STAGE_KEYS: StageKey[] = ['base', 'assigned', 'contacted', 'deposited', 'retention']
+  const allBaseClients = (data?.columns
+    ? BASE_STAGE_KEYS.flatMap((k) => (data.columns[k] || []).map((c) => ({ card: c, stageKey: k })))
+    : []) as Array<{ card: SalesCard; stageKey: StageKey }>
+
   const dashboardSeller = metrics?.scope === 'seller' ? metrics.seller : undefined
 
   return (
@@ -398,6 +403,14 @@ export default function SalesPage() {
         >
           {t('sales.tabs.kanban')}
         </button>
+        {view === 'gateway' && (
+          <button
+            onClick={() => setTab('base')}
+            className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${tab === 'base' ? 'bg-market-accent/15 text-market-accent border border-market-accent/30' : 'text-gray-500 border border-market-border hover:text-gray-300'}`}
+          >
+            {t('sales.tabs.base')}
+          </button>
+        )}
         <button
           onClick={() => setTab('dashboard')}
           className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${tab === 'dashboard' ? 'bg-market-accent/15 text-market-accent border border-market-accent/30' : 'text-gray-500 border border-market-border hover:text-gray-300'}`}
@@ -531,6 +544,57 @@ export default function SalesPage() {
             <span>{t('sales.hint')}</span>
           </div>
         </>
+      ) : tab === 'base' ? (
+        <Card className="p-5">
+          <h3 className="text-sm font-semibold text-gray-200 mb-3">{t('sales.tabs.base')}</h3>
+          {allBaseClients.length === 0 ? (
+            <p className="text-xs text-gray-500">{t('sales.base.empty')}</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-[11px] uppercase tracking-wider text-gray-500 border-b border-market-border">
+                    <th className="pb-2 pr-4">{t('sales.client')}</th>
+                    <th className="pb-2 pr-4">{t('sales.base.stage')}</th>
+                    <th className="pb-2 pr-4">{t('sales.base.owner')}</th>
+                    <th className="pb-2 pr-4">{t('sales.status')}</th>
+                    <th className="pb-2">{t('sales.base.actions')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {allBaseClients.map(({ card, stageKey }) => {
+                    const col = COLUMN_CFG.find((c) => c.key === stageKey)
+                    return (
+                      <tr key={card.id} className="border-b border-market-border/50">
+                        <td className="py-2.5 pr-4">
+                          <Link href={`/clients/${card.id}`} className="text-gray-200 hover:text-market-accent">{card.name}</Link>
+                          <p className="text-xs text-gray-500">{[card.country, card.email].filter(Boolean).join(' · ') || '—'}</p>
+                        </td>
+                        <td className="py-2.5 pr-4">
+                          <span className={`inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-lg border ${col?.border || 'border-market-border'} ${col?.headerBg || ''}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${col?.dot || 'bg-gray-400'}`} />
+                            <span className="text-gray-300">{col ? t(col.labelKey as any) : card.stage}</span>
+                          </span>
+                        </td>
+                        <td className="py-2.5 pr-4 text-gray-400">{card.owner || '—'}</td>
+                        <td className="py-2.5 pr-4"><StatusBadge status={card.status} /></td>
+                        <td className="py-2.5 whitespace-nowrap">
+                          <Button size="sm" onClick={() => setAssignModal({ card, group: 'SALES', target: 'assigned' })}>
+                            {t('sales.base.toSeller')}
+                          </Button>
+                          <span className="inline-block w-2" />
+                          <Button size="sm" variant="ghost" onClick={() => setAssignModal({ card, group: 'RETENTION', target: 'retention' })}>
+                            {t('sales.base.toRetention')}
+                          </Button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
       ) : (
         <div className="space-y-6">
           <p className="text-sm text-gray-500">{t('sales.dashboard.subtitle')}</p>

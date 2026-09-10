@@ -1,9 +1,9 @@
 import { Router } from 'express'
-import { authenticate } from '../../middleware/auth'
+import { authenticate, requireModules } from '../../middleware/auth'
 import { getHealthDashboard } from './health.controller'
 
 const router = Router()
 
-router.get('/overview', authenticate, getHealthDashboard)
+router.get('/overview', authenticate, requireModules('health'), getHealthDashboard)
 
 export default router

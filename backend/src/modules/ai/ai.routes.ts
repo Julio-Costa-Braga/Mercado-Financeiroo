@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { authenticate } from '../../middleware/auth'
+import { authenticate, requireModules } from '../../middleware/auth'
 import {
   getBriefing,
   getClientSketch,
@@ -12,12 +12,12 @@ import {
 
 const router = Router()
 
-router.get('/briefing', authenticate, getBriefing)
-router.get('/requests', authenticate, listRequests)
-router.get('/questions', authenticate, getQuestions)
-router.post('/onboarding', authenticate, submitOnboarding)
-router.get('/tips', authenticate, getTips)
-router.get('/clients/:clientId/sketch', authenticate, getClientSketch)
-router.post('/chat', authenticate, postChat)
+router.get('/briefing', authenticate, requireModules('assistant'), getBriefing)
+router.get('/requests', authenticate, requireModules('assistant'), listRequests)
+router.get('/questions', authenticate, requireModules('assistant'), getQuestions)
+router.post('/onboarding', authenticate, requireModules('assistant'), submitOnboarding)
+router.get('/tips', authenticate, requireModules('assistant'), getTips)
+router.get('/clients/:clientId/sketch', authenticate, requireModules('assistant'), getClientSketch)
+router.post('/chat', authenticate, requireModules('assistant'), postChat)
 
 export default router

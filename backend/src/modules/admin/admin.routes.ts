@@ -1,11 +1,11 @@
 import { Router } from 'express'
-import { authenticate, requireRole } from '../../middleware/auth'
+import { authenticate, requireRole, requireModules } from '../../middleware/auth'
 import { listUsers, createUser, updateUser, deleteUser } from './admin.controller'
 
 const router = Router()
 
 router.use(authenticate)
-router.use(requireRole('ADMIN', 'MANAGER'))
+router.use(requireRole('ADMIN', 'MANAGER'), requireModules('admin'))
 
 router.get('/users', listUsers)
 router.post('/users', createUser)

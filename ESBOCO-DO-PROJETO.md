@@ -187,7 +187,7 @@ validação `zod` nos controllers, CORS explícito, eventos de domínio no backe
 | `/assistant` | assistant | Assistente IA (briefing). |
 | `/notifications` | notifications | Central de notificações. |
 | `/integrations` | integrations | Proveedores. |
-| `/admin` | admin | Gestão de usuários. |
+| `/admin` | admin | Gestão de usuários — papel, time e **acessos por área** (módulos). |
 | `/audit` | audit | Auditoria. |
 | `/health` | health | Observabilidade. |
 | `/portal` | portal | **Área do cliente**: resumo da conta (carteira/depósitos/documentos). |
@@ -287,4 +287,5 @@ popula ativos/cotações/setores/notícias/clientes.
 | Separar sistema por papel: CLIENT/equipe + portal do cliente (carteira, depósitos, documentos) + documentos no CRM | ✅ Concluído |
 | Kanban de retenção: drag & drop, modal de edição no card, métricas otimistas, bug do score | ✅ Concluído |
 | Pipeline multi-kanban Vendas/CRM/Retenção: papel CRM, distribuição para vendedores e analistas, 1º depósito → volta automática à base, dashboard de vendas individual | ✅ Concluído |
+| Acessos por funcionário: `User.modules` + módulo por área (sidebar filtra; guarda `requireModules` no backend); defaults por papel (Vendedor não vê Retenção e vice-versa); Base de Clientes no CRM p/ encaminhar | ✅ Concluído |
 | Tradução integral das demais telas do app | ⏳ Expansível |

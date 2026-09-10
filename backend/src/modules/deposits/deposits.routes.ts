@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { authenticate } from '../../middleware/auth'
+import { authenticate, requireModules } from '../../middleware/auth'
 import { requireRole } from '../../middleware/auth'
 import {
   getFinancialEvents,
@@ -10,9 +10,9 @@ import {
 
 const router = Router()
 
-router.get('/', authenticate, getFinancialEvents)
-router.get('/dashboard', authenticate, getFinancialDashboard)
-router.get('/clients/:id', authenticate, getClientFinancials)
-router.post('/', authenticate, requireRole('ADMIN', 'MANAGER'), createFinancialEvent)
+router.get('/', authenticate, requireModules('deposits'), getFinancialEvents)
+router.get('/dashboard', authenticate, requireModules('deposits'), getFinancialDashboard)
+router.get('/clients/:id', authenticate, requireModules('deposits'), getClientFinancials)
+router.post('/', authenticate, requireModules('deposits'), requireRole('ADMIN', 'MANAGER'), createFinancialEvent)
 
 export default router

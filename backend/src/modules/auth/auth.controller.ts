@@ -7,6 +7,7 @@ import { prisma } from '../../config/prisma'
 import { signAccessToken, signRefreshToken } from '../../utils/jwt'
 import { Errors } from '../../utils/errors'
 import { logger } from '../../config/logger'
+import { effectiveModules } from '../../config/modules'
 
 const MAX_ATTEMPTS = 5
 const LOCK_DURATION_MS = 15 * 60 * 1000 // 15 minutes
@@ -99,6 +100,7 @@ export async function login(req: Request, res: Response, next: NextFunction) {
         role: user.role,
         team: user.team,
         mfaEnabled: user.mfaEnabled,
+        modules: effectiveModules(user),
       },
     })
   } catch (err) {
@@ -252,6 +254,7 @@ export async function getMe(req: Request, res: Response, next: NextFunction) {
         name: true,
         role: true,
         team: true,
+        modules: true,
         timezone: true,
         locale: true,
         currency: true,
@@ -260,7 +263,8 @@ export async function getMe(req: Request, res: Response, next: NextFunction) {
         createdAt: true,
       },
     })
-    res.json({ user })
+    if (!user) throw Errors.notFound('Usuário não encontrado')
+    res.json({ user: { ...user, modules: effectiveModules(user) } })
   } catch (err) {
     next(err)
   }

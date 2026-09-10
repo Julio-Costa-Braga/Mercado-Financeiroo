@@ -17,6 +17,7 @@ model User {
   name          String
   role          Role         @default(RETENTION)
   team          String?
+  modules       Json?
   status        UserStatus   @default(ACTIVE)
   timezone      String?      @default("UTC")
   locale        String?      @default("pt-PT")

@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { authenticate } from '../../middleware/auth'
+import { authenticate, requireModules } from '../../middleware/auth'
 import {
   listTasks,
   getTasksToday,
@@ -10,10 +10,10 @@ import {
 
 const router = Router()
 
-router.get('/', authenticate, listTasks)
-router.get('/today', authenticate, getTasksToday)
-router.post('/', authenticate, createTask)
-router.put('/:id', authenticate, updateTask)
-router.delete('/:id', authenticate, deleteTask)
+router.get('/', authenticate, requireModules('tasks'), listTasks)
+router.get('/today', authenticate, requireModules('tasks'), getTasksToday)
+router.post('/', authenticate, requireModules('tasks'), createTask)
+router.put('/:id', authenticate, requireModules('tasks'), updateTask)
+router.delete('/:id', authenticate, requireModules('tasks'), deleteTask)
 
 export default router
