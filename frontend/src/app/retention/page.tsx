@@ -270,7 +270,11 @@ export default function RetentionPage() {
                   >
                     {/* Topo */}
                     <div className="flex items-start justify-between gap-2 mb-1.5">
-                      <Link href={`/clients/${c.id}`} className="text-sm font-semibold text-gray-100 hover:text-market-accent truncate">
+                      <Link
+                        href={`/clients/${c.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-sm font-semibold text-gray-100 hover:text-market-accent truncate"
+                      >
                         {c.name}
                       </Link>
                       <StatusBadge status={c.status} />
@@ -286,7 +290,10 @@ export default function RetentionPage() {
                         <span className="text-[11px] text-gray-500">{t('retention.score')}</span>
                         <span className="text-sm font-bold tabular-nums text-white">{c.priorityScore}</span>
                         <button
-                          onClick={() => setExpanded(expanded === c.id ? null : c.id)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setExpanded(expanded === c.id ? null : c.id)
+                          }}
                           className="text-gray-500 hover:text-market-accent transition-colors"
                           aria-label="Explicar score"
                         >
