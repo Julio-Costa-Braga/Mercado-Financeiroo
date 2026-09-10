@@ -180,7 +180,12 @@ export async function getRetentionMetrics(req: Request, res: Response, next: Nex
 
 export async function getRetentionKanban(req: Request, res: Response, next: NextFunction) {
   try {
+    const me = req.user!
+    const where: any = {}
+    if (me.role === 'RETENTION') where.ownerId = me.id
+
     const clients = await prisma.client.findMany({
+      where,
       orderBy: [{ retentionStage: 'asc' }, { priorityScore: 'desc' }],
       include: {
         events: { take: 5, orderBy: { date: 'desc' } },
@@ -257,6 +262,10 @@ export async function moveRetentionCard(req: Request, res: Response, next: NextF
       include: { owner: { select: { id: true, name: true } } },
     })
     if (!client) return res.status(404).json({ error: 'Cliente não encontrado' })
+
+    if (req.user!.role === 'RETENTION' && client.ownerId !== req.user!.id) {
+      return res.status(403).json({ error: 'Analista só pode mover os próprios cards' })
+    }
 
     const fromStage = (client.retentionStage || defaultStage(client, client.priorityScore)) as string
     if (fromStage === toStage) return res.json({ ok: true, stage: toStage })

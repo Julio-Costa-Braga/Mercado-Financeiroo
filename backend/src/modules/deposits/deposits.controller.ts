@@ -1,6 +1,12 @@
 import { Request, Response, NextFunction } from 'express'
 import { prisma } from '../../config/prisma'
 import { Errors } from '../../utils/errors'
+import { autoSettleDeposit } from '../sales/sales.controller'
+
+const DEPOSIT_TYPES_RE = /DEPOSIT|FTD/
+function isDeposit(type: string): boolean {
+  return DEPOSIT_TYPES_RE.test(type)
+}
 
 // M19 - Depositos e Movimentações
 // MVP: apenas leitura de eventos financeiros (sem custódia própria).
@@ -111,6 +117,10 @@ export async function createFinancialEvent(req: Request, res: Response, next: Ne
         entityId: event.id,
       },
     })
+
+    if (isDeposit(event.type)) {
+      await autoSettleDeposit(clientId, amount).catch(() => {})
+    }
 
     res.status(201).json({ event })
   } catch (err) {

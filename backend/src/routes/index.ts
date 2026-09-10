@@ -20,6 +20,7 @@ import adminRoutes from '../modules/admin/admin.routes'
 import auditRoutes from '../modules/audit/audit.routes'
 import healthRoutes from '../modules/health/health.routes'
 import portalRoutes from '../modules/portal/portal.routes'
+import salesRoutes from '../modules/sales/sales.routes'
 
 const router = Router()
 
@@ -44,5 +45,6 @@ router.use('/admin', adminRoutes)
 router.use('/audit', auditRoutes)
 router.use('/health', healthRoutes)
 router.use('/portal', portalRoutes)
+router.use('/sales', salesRoutes)
 
 export default router

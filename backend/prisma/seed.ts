@@ -32,7 +32,62 @@ async function main() {
     },
   })
 
-  console.log('Users:', admin.email, julio.email)
+  const crm = await prisma.user.upsert({
+    where: { email: 'crm@mercado.com' },
+    update: {},
+    create: {
+      email: 'crm@mercado.com',
+      passwordHash: userPassword,
+      name: 'CRM Demo',
+      role: 'CRM',
+    },
+  })
+
+  const assessor = await prisma.user.upsert({
+    where: { email: 'assessor@mercado.com' },
+    update: {},
+    create: {
+      email: 'assessor@mercado.com',
+      passwordHash: userPassword,
+      name: 'Assessor Demo',
+      role: 'SALES',
+    },
+  })
+
+  const vendedor2 = await prisma.user.upsert({
+    where: { email: 'vendedor2@mercado.com' },
+    update: {},
+    create: {
+      email: 'vendedor2@mercado.com',
+      passwordHash: userPassword,
+      name: 'Vendedor 2',
+      role: 'SALES',
+    },
+  })
+
+  const retencao = await prisma.user.upsert({
+    where: { email: 'retencao@mercado.com' },
+    update: {},
+    create: {
+      email: 'retencao@mercado.com',
+      passwordHash: userPassword,
+      name: 'Retencao Demo',
+      role: 'RETENTION',
+    },
+  })
+
+  const analista2 = await prisma.user.upsert({
+    where: { email: 'analista2@mercado.com' },
+    update: {},
+    create: {
+      email: 'analista2@mercado.com',
+      passwordHash: userPassword,
+      name: 'Analista 2',
+      role: 'RETENTION',
+    },
+  })
+
+  console.log('Users:', admin.email, julio.email, crm.email)
 
   // Sectors
   const tech = await prisma.sector.upsert({
@@ -397,28 +452,45 @@ async function main() {
 
   // Clients
   const clients = [
-    { name: 'João Silva', country: 'Portugal', status: 'ACTIVE' as any, stage: 'RECOVERED' as any, interests: ['Crypto', 'Technology', 'EUR/USD'] },
-    { name: 'Maria Santos', country: 'Portugal', status: 'AT_RISK' as any, stage: 'RECOVERY' as any, interests: ['Technology', 'ETF'] },
-    { name: 'Pedro Costa', country: 'Portugal', status: 'ACTIVE' as any, stage: 'RECOVERED' as any, interests: ['S&P 500', 'Real Estate'] },
-    { name: 'Ana Oliveira', country: 'Brasil', status: 'ACTIVE' as any, stage: 'CONTACTED' as any, interests: ['BTC', 'Stocks'] },
-    { name: 'Carlos Pereira', country: 'Portugal', status: 'INACTIVE' as any, stage: 'CONTACTED' as any, interests: ['Forex'] },
-    { name: 'Sofia Almeida', country: 'Portugal', status: 'ACTIVE' as any, stage: 'RECOVERED' as any, interests: ['Crypto', 'AI'] },
-    { name: 'Ricardo Fernandes', country: 'Brasil', status: 'AT_RISK' as any, stage: 'RECOVERY' as any, interests: ['NVDA', 'Tech'] },
-    { name: 'Beatriz Rodrigues', country: 'Portugal', status: 'ACTIVE' as any, stage: 'RECOVERED' as any, interests: ['ETF', 'Index'] },
+    { name: 'João Silva', country: 'Portugal', status: 'ACTIVE' as any, stage: 'RECOVERED' as any, interests: ['Crypto', 'Technology', 'EUR/USD'], salesStage: 'DEPOSITED' as any, soldBy: assessor.id, soldAt: '2026-09-08', sentToCrmAt: '2026-09-08', firstDepositValue: 5000, owner: null },
+    { name: 'Maria Santos', country: 'Portugal', status: 'AT_RISK' as any, stage: 'RECOVERY' as any, interests: ['Technology', 'ETF'], salesStage: 'RETENTION' as any, owner: retencao.id },
+    { name: 'Pedro Costa', country: 'Portugal', status: 'ACTIVE' as any, stage: 'RECOVERED' as any, interests: ['S&P 500', 'Real Estate'], salesStage: 'RETENTION' as any, soldBy: assessor.id, soldAt: '2026-08-10', sentToCrmAt: '2026-08-11', firstDepositValue: 10000, owner: analista2.id },
+    { name: 'Ana Oliveira', country: 'Brasil', status: 'ACTIVE' as any, stage: 'CONTACTED' as any, interests: ['BTC', 'Stocks'], owner: julio.id },
+    { name: 'Carlos Pereira', country: 'Portugal', status: 'INACTIVE' as any, stage: 'CONTACTED' as any, interests: ['Forex'], owner: julio.id },
+    { name: 'Sofia Almeida', country: 'Portugal', status: 'ACTIVE' as any, stage: 'RECOVERED' as any, interests: ['Crypto', 'AI'], salesStage: 'RETENTION' as any, owner: julio.id },
+    { name: 'Ricardo Fernandes', country: 'Brasil', status: 'AT_RISK' as any, stage: 'RECOVERY' as any, interests: ['NVDA', 'Tech'], owner: julio.id },
+    { name: 'Beatriz Rodrigues', country: 'Portugal', status: 'ACTIVE' as any, stage: 'RECOVERED' as any, interests: ['ETF', 'Index'], salesStage: 'RETENTION' as any, owner: julio.id },
+    { name: 'Lucas Martins', country: 'Brasil', status: 'INACTIVE' as any, stage: 'TICKET' as any, interests: ['Crypto'], salesStage: 'CRM_BASE' as any, owner: null },
+    { name: 'Tiago Cunha', country: 'Portugal', status: 'INACTIVE' as any, stage: 'TICKET' as any, interests: ['Technology'], salesStage: 'ASSIGNED' as any, owner: assessor.id },
+    { name: 'Miguel Sousa', country: 'Portugal', status: 'INACTIVE' as any, stage: 'TICKET' as any, interests: ['Stocks'], salesStage: 'ASSIGNED' as any, owner: vendedor2.id },
+    { name: 'Rita Correia', country: 'Brasil', status: 'INACTIVE' as any, stage: 'TICKET' as any, interests: ['ETF', 'AI'], salesStage: 'CONTACTED' as any, owner: vendedor2.id },
+    { name: 'Inês Alves', country: 'Portugal', status: 'ACTIVE' as any, stage: 'TICKET' as any, interests: ['S&P 500'], salesStage: 'LOST' as any, soldBy: vendedor2.id, soldAt: '2026-09-04', sentToCrmAt: '2026-09-04', firstDepositValue: 200, refundedAt: '2026-09-05', salesLostReason: 'Pediu reembolso', owner: null },
   ]
 
   const clientRecords = []
   for (const c of clients) {
     const client = await prisma.client.upsert({
       where: { id: c.name === 'João Silva' ? 'client-joao' : c.name === 'Maria Santos' ? 'client-maria' : `client-${c.name.toLowerCase().replace(/\s/g, '-')}` },
-      update: { retentionStage: c.stage },
+      update: {
+        retentionStage: c.stage,
+        ...(c.salesStage ? { salesStage: c.salesStage as any } : {}),
+        ...(c.owner !== undefined ? { ownerId: c.owner } : {}),
+        ...(c.soldBy ? { soldById: c.soldBy } : {}),
+        ...(c.soldAt ? { soldAt: new Date(c.soldAt) } : {}),
+        ...(c.sentToCrmAt ? { sentToCrmAt: new Date(c.sentToCrmAt) } : {}),
+        ...(c.refundedAt ? { refundedAt: new Date(c.refundedAt) } : {}),
+        ...(c.firstDepositValue !== undefined ? { firstDepositValue: c.firstDepositValue } : {}),
+        ...(c.salesLostReason ? { salesLostReason: c.salesLostReason } : {}),
+      },
       create: {
         id: c.name === 'João Silva' ? 'client-joao' : c.name === 'Maria Santos' ? 'client-maria' : `client-${c.name.toLowerCase().replace(/\s/g, '-')}`,
         name: c.name,
         country: c.country,
         status: c.status,
         retentionStage: c.stage,
-        ownerId: julio.id,
+        salesStage: (c.salesStage as any) || 'CRM_BASE',
+        ownerId: c.owner !== undefined ? c.owner : null,
+        firstDepositValue: c.firstDepositValue ?? undefined,
         lastContactAt: new Date(Date.now() - Math.floor(Math.random() * 30) * 86400000),
         lastLoginAt: new Date(Date.now() - Math.floor(Math.random() * 60) * 86400000),
         interests: {
@@ -429,11 +501,9 @@ async function main() {
     clientRecords.push(client)
   }
 
-  // Contas demo por papel + vinculo cliente <-> usuario do portal
+  // Conta demo do portal (cliente)
   const demoUsers: Array<{ email: string; name: string; role: any; clientName: string }> = [
     { email: 'cliente@mercado.com', name: 'Cliente Demo', role: 'CLIENT', clientName: 'João Silva' },
-    { email: 'assessor@mercado.com', name: 'Assessor Demo', role: 'SALES', clientName: 'João Silva' },
-    { email: 'retencao@mercado.com', name: 'Retencao Demo', role: 'RETENTION', clientName: 'Maria Santos' },
   ]
 
   for (const du of demoUsers) {

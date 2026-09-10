@@ -67,7 +67,7 @@ export function requireRole(...roles: string[]) {
   }
 }
 
-const TEAM_ROLES = ['ADMIN', 'MANAGER', 'RETENTION', 'SALES', 'RESEARCH', 'COMPLIANCE']
+const TEAM_ROLES = ['ADMIN', 'MANAGER', 'CRM', 'RETENTION', 'SALES', 'RESEARCH', 'COMPLIANCE']
 
 // Restringe acesso a rotas internas (equipe). Clientes so tem acesso ao portal.
 export function requireTeam(req: Request, _res: Response, next: NextFunction) {

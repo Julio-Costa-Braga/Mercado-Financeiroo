@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { authenticate, requireTeam } from '../../middleware/auth'
+import { authenticate, requireRole } from '../../middleware/auth'
 import {
   getRetentionWorkbench,
   recalcClientScore,
@@ -10,11 +10,13 @@ import {
 
 const router = Router()
 
-router.get('/workbench', authenticate, requireTeam, getRetentionWorkbench)
-router.get('/metrics', authenticate, requireTeam, getRetentionMetrics)
-router.post('/recalc/:id', authenticate, requireTeam, recalcClientScore)
+const MAINTAINERS = ['ADMIN', 'MANAGER', 'CRM', 'RETENTION']
 
-router.get('/kanban', authenticate, requireTeam, getRetentionKanban)
-router.post('/kanban/:id/move', authenticate, requireTeam, moveRetentionCard)
+router.get('/workbench', authenticate, requireRole(...MAINTAINERS), getRetentionWorkbench)
+router.get('/metrics', authenticate, requireRole(...MAINTAINERS), getRetentionMetrics)
+router.post('/recalc/:id', authenticate, requireRole(...MAINTAINERS), recalcClientScore)
+
+router.get('/kanban', authenticate, requireRole(...MAINTAINERS), getRetentionKanban)
+router.post('/kanban/:id/move', authenticate, requireRole(...MAINTAINERS), moveRetentionCard)
 
 export default router

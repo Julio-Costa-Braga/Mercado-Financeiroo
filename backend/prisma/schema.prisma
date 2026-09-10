@@ -43,11 +43,13 @@ model User {
   aiRequests        AiRequest[]
   clientDocuments   ClientDocument[]
   clientsPortal     Client[]         @relation("ClientUser")
+  clientsSoldBy     Client[]         @relation("ClientSoldBy")
 }
 
 enum Role {
   ADMIN
   MANAGER
+  CRM
   RETENTION
   SALES
   RESEARCH
@@ -118,6 +120,14 @@ model Client {
   country       String?
   status        ClientStatus    @default(ACTIVE)
   retentionStage RetentionStage?
+  salesStage    SalesStage      @default(CRM_BASE)
+  soldById      String?
+  soldBy        User?           @relation("ClientSoldBy", fields: [soldById], references: [id], onDelete: SetNull)
+  soldAt        DateTime?
+  sentToCrmAt   DateTime?
+  firstDepositValue Float?
+  refundedAt    DateTime?
+  salesLostReason String?
   churnRisk     Int             @default(0)
   priorityScore Int             @default(0)
   ownerId       String?
@@ -152,6 +162,8 @@ model Client {
   @@index([ownerId])
   @@index([status])
   @@index([churnRisk])
+  @@index([salesStage])
+  @@index([soldById])
 }
 
 model ClientDocument {
@@ -184,6 +196,15 @@ enum RetentionStage {
   RECOVERY
   RECOVERED
   CHURNED
+}
+
+enum SalesStage {
+  CRM_BASE
+  ASSIGNED
+  CONTACTED
+  DEPOSITED
+  RETENTION
+  LOST
 }
 
 enum RiskProfile {

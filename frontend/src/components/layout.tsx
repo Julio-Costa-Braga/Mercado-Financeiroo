@@ -62,6 +62,7 @@ const TEAM_NAV: NavItem[] = [
 
 const CRM_NAV: NavItem[] = [
   { href: '/clients', labelKey: 'nav.clients', icon: 'clients' },
+  { href: '/vendas', labelKey: 'nav.sales', icon: 'clients' },
   { href: '/retention', labelKey: 'nav.retention', icon: 'retention' },
   { href: '/deposits', labelKey: 'nav.deposits', icon: 'deposits' },
   { href: '/tasks', labelKey: 'nav.tasks', icon: 'tasks' },
@@ -100,6 +101,7 @@ const PATH_TITLES: Array<{ prefix: string; labelKey: string }> = [
   { prefix: '/macro', labelKey: 'nav.macro' },
   { prefix: '/calendar', labelKey: 'nav.calendar' },
   { prefix: '/clients', labelKey: 'nav.clients' },
+  { prefix: '/vendas', labelKey: 'nav.sales' },
   { prefix: '/retention', labelKey: 'nav.retention' },
   { prefix: '/deposits', labelKey: 'nav.deposits' },
   { prefix: '/watchlist', labelKey: 'nav.watchlist' },
@@ -343,7 +345,7 @@ export function Sidebar() {
   )
 }
 
-const TEAM_PATHS = ['/dashboard', '/research', '/macro', '/calendar', '/clients', '/retention', '/deposits', '/watchlist', '/tasks', '/reports', '/integrations', '/admin', '/audit', '/health']
+const TEAM_PATHS = ['/dashboard', '/research', '/macro', '/calendar', '/clients', '/vendas', '/retention', '/deposits', '/watchlist', '/tasks', '/reports', '/integrations', '/admin', '/audit', '/health']
 const CLIENT_PATHS = ['/portal']
 
 export function Main({ children }: { children: React.ReactNode }) {
