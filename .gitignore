@@ -43,3 +43,5 @@ prisma/*.db
 
 # Zips
 *.zip
+.vercel
+.env*

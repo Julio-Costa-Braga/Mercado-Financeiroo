@@ -51,24 +51,40 @@ interface NavItem {
   icon: keyof typeof ICONS
 }
 
-const NAV: NavItem[] = [
+const TEAM_NAV: NavItem[] = [
   { href: '/dashboard', labelKey: 'nav.dashboard', icon: 'dashboard' },
   { href: '/market/stocks', labelKey: 'nav.markets', icon: 'market' },
   { href: '/research', labelKey: 'nav.research', icon: 'research' },
   { href: '/news', labelKey: 'nav.news', icon: 'news' },
   { href: '/macro', labelKey: 'nav.macro', icon: 'macro' },
   { href: '/calendar', labelKey: 'nav.calendar', icon: 'calendar' },
+]
+
+const CRM_NAV: NavItem[] = [
   { href: '/clients', labelKey: 'nav.clients', icon: 'clients' },
   { href: '/retention', labelKey: 'nav.retention', icon: 'retention' },
   { href: '/deposits', labelKey: 'nav.deposits', icon: 'deposits' },
-  { href: '/watchlist', labelKey: 'nav.watchlist', icon: 'watchlist' },
-  { href: '/alerts', labelKey: 'nav.alerts', icon: 'alerts' },
   { href: '/tasks', labelKey: 'nav.tasks', icon: 'tasks' },
   { href: '/reports', labelKey: 'nav.reports', icon: 'reports' },
   { href: '/assistant', labelKey: 'nav.assistant', icon: 'assistant' },
 ]
 
-const NAV_BOTTOM: NavItem[] = [
+const CLIENT_NAV: NavItem[] = [
+  { href: '/portal', labelKey: 'nav.portal', icon: 'dashboard' },
+  { href: '/portal/deposits', labelKey: 'nav.deposits', icon: 'deposits' },
+  { href: '/portal/documents', labelKey: 'nav.documents', icon: 'audit' },
+  { href: '/market/stocks', labelKey: 'nav.markets', icon: 'market' },
+  { href: '/news', labelKey: 'nav.news', icon: 'news' },
+  { href: '/alerts', labelKey: 'nav.alerts', icon: 'alerts' },
+  { href: '/assistant', labelKey: 'nav.assistant', icon: 'assistant' },
+]
+
+const WATCHLIST_NAV: NavItem[] = [
+  { href: '/watchlist', labelKey: 'nav.watchlist', icon: 'watchlist' },
+  { href: '/alerts', labelKey: 'nav.alerts', icon: 'alerts' },
+]
+
+const ADMIN_NAV: NavItem[] = [
   { href: '/notifications', labelKey: 'nav.notifications', icon: 'notifications' },
   { href: '/integrations', labelKey: 'nav.integrations', icon: 'integrations' },
   { href: '/admin', labelKey: 'nav.admin', icon: 'admin' },
@@ -96,6 +112,7 @@ const PATH_TITLES: Array<{ prefix: string; labelKey: string }> = [
   { prefix: '/admin', labelKey: 'nav.admin' },
   { prefix: '/audit', labelKey: 'nav.audit' },
   { prefix: '/health', labelKey: 'nav.health' },
+  { prefix: '/portal', labelKey: 'nav.portal' },
 ]
 
 function usePageTitle(pathname: string): string {
@@ -229,6 +246,19 @@ function formatClockStr(d: Date, locale: 'pt' | 'en' | 'es'): string {
   return new Intl.DateTimeFormat(l, { hour: '2-digit', minute: '2-digit' }).format(d)
 }
 
+function SidebarSection({ title, items, pathname }: { title?: string; items: NavItem[]; pathname: string }) {
+  const { t } = useI18n()
+  if (!items.length) return null
+  return (
+    <div className="mb-3">
+      {title && <p className="text-[10px] uppercase tracking-wider text-gray-600 px-3 mb-1 font-semibold">{title}</p>}
+      {items.map((item) => (
+        <SidebarItem key={item.href} item={item} pathname={pathname} />
+      ))}
+    </div>
+  )
+}
+
 export function Sidebar() {
   const router = useRouter()
   const pathname = usePathname()
@@ -261,6 +291,9 @@ export function Sidebar() {
     ? user.name.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase()
     : '??'
 
+  const isClient = user?.role === 'CLIENT'
+  const isManager = user?.role === 'ADMIN' || user?.role === 'MANAGER'
+
   return (
     <aside className="w-60 bg-market-card/40 backdrop-blur-sm border-r border-market-border flex flex-col h-screen sticky top-0 shrink-0">
       <div className="py-5 px-4 border-b border-market-border">
@@ -268,16 +301,24 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
-        {NAV.map((item) => (
-          <SidebarItem key={item.href} item={item} pathname={pathname} />
-        ))}
+        {isClient ? (
+          <>
+            <SidebarSection items={CLIENT_NAV} pathname={pathname} />
+          </>
+        ) : (
+          <>
+            <SidebarSection title={t('nav.section.markets')} items={TEAM_NAV} pathname={pathname} />
+            <SidebarSection title={t('nav.section.crm')} items={CRM_NAV} pathname={pathname} />
+            <SidebarSection items={WATCHLIST_NAV} pathname={pathname} />
+          </>
+        )}
       </nav>
 
       <div className="p-3 border-t border-market-border">
         <div className="border-b border-market-border pb-2 mb-2">
-          {NAV_BOTTOM.map((item) => (
-            <SidebarItem key={item.href} item={item} pathname={pathname} />
-          ))}
+          {(isManager || isClient) && (
+            <SidebarSection items={ADMIN_NAV} pathname={pathname} />
+          )}
         </div>
         {user && (
           <div className="flex items-center gap-3 px-2 py-2">
@@ -302,8 +343,33 @@ export function Sidebar() {
   )
 }
 
+const TEAM_PATHS = ['/dashboard', '/research', '/macro', '/calendar', '/clients', '/retention', '/deposits', '/watchlist', '/tasks', '/reports', '/integrations', '/admin', '/audit', '/health']
+const CLIENT_PATHS = ['/portal']
+
 export function Main({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const router = useRouter()
+  const [guardRole, setGuardRole] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!api.getToken()) return
+    api
+      .get<{ user: { role: string } }>('/auth/me')
+      .then((d) => setGuardRole(d.user?.role || null))
+      .catch(() => setGuardRole(null))
+  }, [])
+
+  useEffect(() => {
+    if (!guardRole) return
+    const isClientArea = CLIENT_PATHS.some((p) => pathname.startsWith(p))
+    const isTeamArea = TEAM_PATHS.some((p) => pathname.startsWith(p))
+    if (guardRole === 'CLIENT' && isTeamArea) {
+      router.replace('/portal')
+    } else if (guardRole !== 'CLIENT' && isClientArea) {
+      router.replace('/dashboard')
+    }
+  }, [guardRole, pathname, router])
+
   return (
     <div className="flex min-h-screen bg-market-bg">
       <Sidebar />

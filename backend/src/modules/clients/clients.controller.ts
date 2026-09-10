@@ -96,7 +96,13 @@ export async function getClient(req: Request, res: Response, next: NextFunction)
           include: { owner: { select: { name: true } } },
         },
         alerts: { take: 20 },
-        _count: { select: { tasks: true, notes: true, interests: true } },
+        user: { select: { id: true, email: true, role: true } },
+        documents: {
+          orderBy: { createdAt: 'desc' },
+          take: 50,
+          select: { id: true, name: true, category: true, mimeType: true, size: true, createdAt: true, uploadedBy: { select: { name: true } } },
+        },
+        _count: { select: { tasks: true, notes: true, interests: true, documents: true } },
       },
     })
 

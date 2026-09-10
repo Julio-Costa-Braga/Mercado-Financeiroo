@@ -19,6 +19,7 @@ import integrationsRoutes from '../modules/integrations/integrations.routes'
 import adminRoutes from '../modules/admin/admin.routes'
 import auditRoutes from '../modules/audit/audit.routes'
 import healthRoutes from '../modules/health/health.routes'
+import portalRoutes from '../modules/portal/portal.routes'
 
 const router = Router()
 
@@ -42,5 +43,6 @@ router.use('/integrations', integrationsRoutes)
 router.use('/admin', adminRoutes)
 router.use('/audit', auditRoutes)
 router.use('/health', healthRoutes)
+router.use('/portal', portalRoutes)
 
 export default router

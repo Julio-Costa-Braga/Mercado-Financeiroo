@@ -1,5 +1,5 @@
 'use client'
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { Main } from '@/components/layout'
 import { Button, Card, EmptyState, PageHeader, Spinner, StatusBadge, formatDate, inputCls } from '@/components/ui'
@@ -51,6 +51,12 @@ export default function Client360Page() {
   // esboco IA
   const [sketch, setSketch] = useState('')
   const [sketchLoading, setSketchLoading] = useState(false)
+
+  // documentos
+  const [uploading, setUploading] = useState(false)
+  const [docMsg, setDocMsg] = useState('')
+  const [docError, setDocError] = useState('')
+  const fileRef = useRef<HTMLInputElement>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -142,6 +148,42 @@ export default function Client360Page() {
     } finally {
       setSketchLoading(false)
     }
+  }
+
+  async function handleDocUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    setDocMsg('')
+    setDocError('')
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      await api.postForm(`/clients/${id}/documents`, fd)
+      setDocMsg('Documento enviado com sucesso.')
+      if (fileRef.current) fileRef.current.value = ''
+      load()
+    } catch (err: any) {
+      setDocError(err.message || 'Erro ao enviar documento')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  async function handleDocDelete(docId: string) {
+    if (!window.confirm('Excluir este documento?')) return
+    try {
+      await api.del(`/clients/${id}/documents/${docId}`)
+      load()
+    } catch (err: any) {
+      setDocError(err.message || 'Erro ao excluir documento')
+    }
+  }
+
+  function fmtSize(bytes: number): string {
+    if (bytes >= 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+    if (bytes >= 1024) return (bytes / 1024).toFixed(0) + ' KB'
+    return bytes + ' B'
   }
 
   if (loading) return <Main><Spinner /></Main>
@@ -372,6 +414,59 @@ export default function Client360Page() {
             <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Adicionar nota..." className={`${inputCls} resize-none`} rows={3} />
             <Button variant="outline" type="submit" className="w-full">Adicionar nota</Button>
           </form>
+        </Card>
+
+        {/* Documentos */}
+        <Card
+          title="Documentos"
+          className="lg:col-span-3"
+          action={
+            <>
+              <input
+                ref={fileRef}
+                type="file"
+                className="hidden"
+                onChange={handleDocUpload}
+              />
+              <Button size="sm" onClick={() => fileRef.current?.click()} disabled={uploading}>
+                {uploading ? 'Enviando...' : 'Enviar documento'}
+              </Button>
+            </>
+          }
+        >
+          {docMsg && (
+            <div className="mb-4 text-xs text-market-up bg-market-up/10 border border-market-up/20 rounded-lg px-3 py-2.5">{docMsg}</div>
+          )}
+          {docError && (
+            <div className="mb-4 text-xs text-market-down bg-market-down/10 border border-market-down/20 rounded-lg px-3 py-2.5">{docError}</div>
+          )}
+          {!c.documents || c.documents.length === 0 ? (
+            <EmptyState title="Nenhum documento" description="Envie contratos, propostas, comprovantes ou documentos de identificação do cliente." />
+          ) : (
+            <ul className="divide-y divide-market-border/60">
+              {c.documents.map((d: any) => (
+                <li key={d.id} className="flex items-center gap-4 py-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-200 truncate">{d.name}</p>
+                    <p className="text-[11px] text-gray-500">
+                      {d.category} · {fmtSize(d.size)} · {d.uploadedBy?.name || '—'} · {formatDate(d.createdAt)}
+                    </p>
+                  </div>
+                  <a
+                    href={`${api.getBaseUrl()}/clients/${id}/documents/${d.id}/download`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs text-market-accent hover:underline shrink-0"
+                  >
+                    Baixar
+                  </a>
+                  <button onClick={() => handleDocDelete(d.id)} className="text-xs text-market-down hover:underline shrink-0">
+                    Excluir
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </Card>
       </div>
     </Main>

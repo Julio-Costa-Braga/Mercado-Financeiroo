@@ -428,6 +428,47 @@ async function main() {
     clientRecords.push(client)
   }
 
+  // Contas demo por papel + vinculo cliente <-> usuario do portal
+  const demoUsers: Array<{ email: string; name: string; role: any; clientName: string }> = [
+    { email: 'cliente@mercado.com', name: 'Cliente Demo', role: 'CLIENT', clientName: 'João Silva' },
+    { email: 'assessor@mercado.com', name: 'Assessor Demo', role: 'SALES', clientName: 'João Silva' },
+    { email: 'retencao@mercado.com', name: 'Retencao Demo', role: 'RETENTION', clientName: 'Maria Santos' },
+  ]
+
+  for (const du of demoUsers) {
+    const user = await prisma.user.upsert({
+      where: { email: du.email },
+      update: { role: du.role },
+      create: { email: du.email, name: du.name, passwordHash: userPassword, role: du.role },
+    })
+    if (du.role === 'CLIENT') {
+      const targetClient = clientRecords.find((c) => c.name === du.clientName)
+      if (targetClient) {
+        await prisma.client.update({ where: { id: targetClient.id }, data: { userId: user.id } })
+      }
+    }
+  }
+
+  // Documento de exemplo vinculado ao Joao
+  const joao = clientRecords.find((c) => c.name === 'João Silva')
+  if (joao) {
+    const samplePdf = Buffer.from('%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF')
+    await prisma.clientDocument.upsert({
+      where: { id: 'doc-joao-exemplo' },
+      update: {},
+      create: {
+        id: 'doc-joao-exemplo',
+        clientId: joao.id,
+        uploadedById: julio.id,
+        name: 'contrato-adesao.pdf',
+        category: 'CONTRATO',
+        mimeType: 'application/pdf',
+        size: samplePdf.length,
+        data: samplePdf,
+      },
+    })
+  }
+
   // Tasks
   const taskTemplates = [
     { title: 'Follow-up João - interesse em NVDA', type: 'FOLLOW_UP', priority: 'HIGH', status: 'OPEN' as any, clientIdx: 0 },

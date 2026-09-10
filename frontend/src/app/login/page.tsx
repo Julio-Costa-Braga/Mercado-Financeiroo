@@ -47,7 +47,12 @@ export default function LoginPage() {
       }
       api.setTokens(data.accessToken, data.refreshToken)
       connectSocket()
-      router.push('/dashboard')
+      try {
+        const me = await api.get<{ user: { role: string } }>('/auth/me')
+        router.push(me.user?.role === 'CLIENT' ? '/portal' : '/dashboard')
+      } catch {
+        router.push('/dashboard')
+      }
     } catch (err: any) {
       setError(err.message || t('login.error.required'))
     } finally {
@@ -66,7 +71,12 @@ export default function LoginPage() {
       )
       api.setTokens(data.accessToken, data.refreshToken)
       connectSocket()
-      router.push('/dashboard')
+      try {
+        const me = await api.get<{ user: { role: string } }>('/auth/me')
+        router.push(me.user?.role === 'CLIENT' ? '/portal' : '/dashboard')
+      } catch {
+        router.push('/dashboard')
+      }
     } catch (err: any) {
       setError(err.message)
     } finally {

@@ -41,6 +41,8 @@ model User {
   clientContacts    ClientContact[]
   clientNotes       ClientNote[]
   aiRequests        AiRequest[]
+  clientDocuments   ClientDocument[]
+  clientsPortal     Client[]         @relation("ClientUser")
 }
 
 enum Role {
@@ -50,6 +52,7 @@ enum Role {
   SALES
   RESEARCH
   COMPLIANCE
+  CLIENT
 }
 
 enum UserStatus {
@@ -118,6 +121,8 @@ model Client {
   priorityScore Int             @default(0)
   ownerId       String?
   owner         User?           @relation("ClientOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  userId        String?         @unique
+  user          User?           @relation("ClientUser", fields: [userId], references: [id], onDelete: SetNull)
   experience    String?
   objective     String?
   riskProfile   RiskProfile?
@@ -141,10 +146,27 @@ model Client {
   retentionHistory RetentionStatusHistory[]
   scores          RetentionScore[]
   financialEvents FinancialEvent[]
+  documents       ClientDocument[]
 
   @@index([ownerId])
   @@index([status])
   @@index([churnRisk])
+}
+
+model ClientDocument {
+  id           String   @id @default(uuid())
+  clientId     String
+  client       Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  uploadedById String
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
+  name         String
+  category     String   @default("DOCUMENTO")
+  mimeType     String   @default("application/octet-stream")
+  size         Int      @default(0)
+  data         Bytes
+  createdAt    DateTime @default(now())
+
+  @@index([clientId])
 }
 
 enum ClientStatus {
