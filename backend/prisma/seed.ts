@@ -397,26 +397,27 @@ async function main() {
 
   // Clients
   const clients = [
-    { name: 'João Silva', country: 'Portugal', status: 'ACTIVE' as any, interests: ['Crypto', 'Technology', 'EUR/USD'] },
-    { name: 'Maria Santos', country: 'Portugal', status: 'AT_RISK' as any, interests: ['Technology', 'ETF'] },
-    { name: 'Pedro Costa', country: 'Portugal', status: 'ACTIVE' as any, interests: ['S&P 500', 'Real Estate'] },
-    { name: 'Ana Oliveira', country: 'Brasil', status: 'ACTIVE' as any, interests: ['BTC', 'Stocks'] },
-    { name: 'Carlos Pereira', country: 'Portugal', status: 'INACTIVE' as any, interests: ['Forex'] },
-    { name: 'Sofia Almeida', country: 'Portugal', status: 'ACTIVE' as any, interests: ['Crypto', 'AI'] },
-    { name: 'Ricardo Fernandes', country: 'Brasil', status: 'AT_RISK' as any, interests: ['NVDA', 'Tech'] },
-    { name: 'Beatriz Rodrigues', country: 'Portugal', status: 'ACTIVE' as any, interests: ['ETF', 'Index'] },
+    { name: 'João Silva', country: 'Portugal', status: 'ACTIVE' as any, stage: 'RECOVERED' as any, interests: ['Crypto', 'Technology', 'EUR/USD'] },
+    { name: 'Maria Santos', country: 'Portugal', status: 'AT_RISK' as any, stage: 'RECOVERY' as any, interests: ['Technology', 'ETF'] },
+    { name: 'Pedro Costa', country: 'Portugal', status: 'ACTIVE' as any, stage: 'RECOVERED' as any, interests: ['S&P 500', 'Real Estate'] },
+    { name: 'Ana Oliveira', country: 'Brasil', status: 'ACTIVE' as any, stage: 'CONTACTED' as any, interests: ['BTC', 'Stocks'] },
+    { name: 'Carlos Pereira', country: 'Portugal', status: 'INACTIVE' as any, stage: 'CONTACTED' as any, interests: ['Forex'] },
+    { name: 'Sofia Almeida', country: 'Portugal', status: 'ACTIVE' as any, stage: 'RECOVERED' as any, interests: ['Crypto', 'AI'] },
+    { name: 'Ricardo Fernandes', country: 'Brasil', status: 'AT_RISK' as any, stage: 'RECOVERY' as any, interests: ['NVDA', 'Tech'] },
+    { name: 'Beatriz Rodrigues', country: 'Portugal', status: 'ACTIVE' as any, stage: 'RECOVERED' as any, interests: ['ETF', 'Index'] },
   ]
 
   const clientRecords = []
   for (const c of clients) {
     const client = await prisma.client.upsert({
       where: { id: c.name === 'João Silva' ? 'client-joao' : c.name === 'Maria Santos' ? 'client-maria' : `client-${c.name.toLowerCase().replace(/\s/g, '-')}` },
-      update: {},
+      update: { retentionStage: c.stage },
       create: {
         id: c.name === 'João Silva' ? 'client-joao' : c.name === 'Maria Santos' ? 'client-maria' : `client-${c.name.toLowerCase().replace(/\s/g, '-')}`,
         name: c.name,
         country: c.country,
         status: c.status,
+        retentionStage: c.stage,
         ownerId: julio.id,
         lastContactAt: new Date(Date.now() - Math.floor(Math.random() * 30) * 86400000),
         lastLoginAt: new Date(Date.now() - Math.floor(Math.random() * 60) * 86400000),

@@ -117,6 +117,7 @@ model Client {
   phone         String?
   country       String?
   status        ClientStatus    @default(ACTIVE)
+  retentionStage RetentionStage?
   churnRisk     Int             @default(0)
   priorityScore Int             @default(0)
   ownerId       String?
@@ -174,6 +175,14 @@ enum ClientStatus {
   INACTIVE
   PWM
   AT_RISK
+  CHURNED
+}
+
+enum RetentionStage {
+  TICKET
+  CONTACTED
+  RECOVERY
+  RECOVERED
   CHURNED
 }
 

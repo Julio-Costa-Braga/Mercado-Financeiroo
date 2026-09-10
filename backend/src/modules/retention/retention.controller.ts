@@ -1,10 +1,43 @@
 import { Request, Response, NextFunction } from 'express'
 import { prisma } from '../../config/prisma'
 import { dispatch, EventTopics } from '../../config/events'
+import { createNotification } from '../notifications/notifications.controller'
 
 interface ScoreBreakdown {
   reason: string
   points: number
+}
+
+const STAGE_ORDER: Record<string, number> = {
+  TICKET: 0,
+  CONTACTED: 1,
+  RECOVERY: 2,
+  RECOVERED: 3,
+  CHURNED: 4,
+}
+
+type StageKey = 'ticket' | 'contacted' | 'recovery' | 'recovered' | 'churned'
+
+const STAGES: StageKey[] = ['ticket', 'contacted', 'recovery', 'recovered', 'churned']
+
+function defaultStage(client: any, score: number): string {
+  switch (client.status) {
+    case 'CHURNED':
+      return 'CHURNED'
+    case 'PWM':
+    case 'AT_RISK':
+      return 'RECOVERY'
+    case 'INACTIVE':
+      return 'CONTACTED'
+    case 'ACTIVE':
+      return score >= 40 ? 'CONTACTED' : 'RECOVERED'
+    default:
+      return 'TICKET'
+  }
+}
+
+function stageKeyFrom(stage: string): StageKey {
+  return (stage || 'TICKET').toLowerCase() as StageKey
 }
 
 function computeBreakdown(client: any, events: any[]): { score: number; breakdown: ScoreBreakdown[] } {
@@ -138,6 +171,141 @@ export async function getRetentionMetrics(req: Request, res: Response, next: Nex
       retentionRate,
       reactivated: reactivated,
     })
+  } catch (err) {
+    next(err)
+  }
+}
+
+// ============ KANBAN DE RETENÇÃO ============
+
+export async function getRetentionKanban(req: Request, res: Response, next: NextFunction) {
+  try {
+    const clients = await prisma.client.findMany({
+      orderBy: [{ retentionStage: 'asc' }, { priorityScore: 'desc' }],
+      include: {
+        events: { take: 5, orderBy: { date: 'desc' } },
+        interests: true,
+        tags: true,
+        owner: { select: { name: true } },
+        tasks: {
+          where: { status: { in: ['OPEN', 'IN_PROGRESS'] } },
+          select: { id: true, title: true, priority: true, status: true },
+        },
+        alerts: { select: { id: true } },
+        _count: { select: { tasks: true, notes: true } },
+      },
+    })
+
+    const columns: Record<StageKey, any[]> = { ticket: [], contacted: [], recovery: [], recovered: [], churned: [] }
+
+    for (const c of clients) {
+      const { score, breakdown } = computeBreakdown(c, c.events)
+      const stage = (c.retentionStage || defaultStage(c, score)) as string
+      const riskLevel =
+        score >= 80 ? 'CRITICAL' : score >= 60 ? 'HIGH' : score >= 40 ? 'MEDIUM' : 'LOW'
+      const daysSinceContact = c.lastContactAt
+        ? Math.floor((Date.now() - c.lastContactAt.getTime()) / 86400000)
+        : null
+
+      const card = {
+        id: c.id,
+        name: c.name,
+        email: c.email,
+        status: c.status,
+        stage,
+        owner: c.owner?.name ?? null,
+        country: c.country,
+        priorityScore: score,
+        churnRisk: c.churnRisk,
+        riskLevel,
+        breakdown,
+        lastContactAt: c.lastContactAt,
+        daysSinceContact,
+        lastEvent: c.events[0]
+          ? { type: c.events[0].type, date: c.events[0].date }
+          : null,
+        interests: c.interests.map((i: any) => i.interest),
+        openTasks: c.tasks,
+        openTasksCount: c.tasks.length,
+        alertsCount: c.alerts.length,
+        riskProfile: c.riskProfile,
+        clientType: c.clientType,
+        objective: c.objective,
+      }
+      columns[stageKeyFrom(stage)]?.push(card)
+    }
+
+    res.json({
+      columns,
+      counts: Object.fromEntries(STAGES.map((s) => [s, columns[s].length])),
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+export async function moveRetentionCard(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { id } = req.params
+    const { toStage, reason } = req.body as { toStage?: string; reason?: string }
+    if (!toStage || !(toStage in STAGE_ORDER)) {
+      return res.status(400).json({ error: 'Stage de destino inválido' })
+    }
+
+    const client = await prisma.client.findUnique({
+      where: { id },
+      include: { owner: { select: { id: true, name: true } } },
+    })
+    if (!client) return res.status(404).json({ error: 'Cliente não encontrado' })
+
+    const fromStage = (client.retentionStage || defaultStage(client, client.priorityScore)) as string
+    if (fromStage === toStage) return res.json({ ok: true, stage: toStage })
+
+    // Sincroniza status quando o card vira CHURNED ou RECOVERED
+    const statusSync =
+      toStage === 'CHURNED'
+        ? { status: 'CHURNED' as const, churnRisk: Math.max(client.churnRisk, 80) }
+        : toStage === 'RECOVERED'
+          ? { status: 'ACTIVE' as const, churnRisk: Math.min(client.churnRisk, 20) }
+          : client.status === 'CHURNED'
+            ? ({ status: 'ACTIVE' as const } as any)
+            : undefined
+
+    await prisma.$transaction([
+      prisma.client.update({
+        where: { id },
+        data: { retentionStage: toStage as any, ...(statusSync || {}) },
+      }),
+      prisma.retentionStatusHistory.create({
+        data: {
+          clientId: id,
+          from: fromStage,
+          to: toStage,
+          reason: reason || null,
+        },
+      }),
+      prisma.clientEvent.create({
+        data: {
+          clientId: id,
+          type: 'RETENTION_STAGE_CHANGED',
+          meta: { from: fromStage, to: toStage, reason: reason || '' },
+        },
+      }),
+    ])
+
+    // Notifica o dono do cliente (equipe)
+    if (client.owner?.id) {
+      await createNotification(
+        client.owner.id,
+        'CLIENT',
+        `Retenção: ${client.name} → ${toStage}`,
+        reason ? `Motivo: ${reason}` : `Movido de ${fromStage} para ${toStage}.`
+      ).catch(() => {})
+    }
+
+    dispatch(EventTopics.CLIENT_UPDATED, { clientId: id, retentionStage: toStage, fromStage })
+
+    res.json({ ok: true, fromStage, toStage })
   } catch (err) {
     next(err)
   }
