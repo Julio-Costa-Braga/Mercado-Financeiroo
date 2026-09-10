@@ -93,6 +93,12 @@ validação `zod` nos controllers, CORS explícito, eventos de domínio no backe
 ### retention — Prevenção de churn
 - `GET /workbench`, `/metrics` e `POST /recalc/:id` — score de retenção e risco
   por cliente, recalculável.
+- `GET /kanban` — board de retenção agrupado por `RetentionStage` (cards ricos:
+  score + breakdown, dias sem contato, owner, país, interesses, tarefas abertas,
+  alertas, último evento).
+- `POST /kanban/:id/move` — move o card entre etapas: atualiza o campo, grava
+  `RetentionStatusHistory` + evento `RETENTION_STAGE_CHANGED`, sincroniza `status`
+  (CHURNED / RECOVERED→ACTIVE) e notifica o owner do cliente.
 
 ### deposits — Operações/Depósitos
 - `GET /`, `/dashboard`, `/clients/:id` e `POST /` — lançamentos por cliente.
@@ -147,7 +153,7 @@ validação `zod` nos controllers, CORS explícito, eventos de domínio no backe
 | `/macro` | macro | Indicadores macro por região. |
 | `/calendar` | calendar | Calendário econômico. |
 | `/clients` | clients | CRM. |
-| `/retention` | retention | Workbench anti-churn. |
+| `/retention` | retention | Kanban anti-churn (drag & drop por etapas). |
 | `/deposits` | deposits | Operações/Depósitos. |
 | `/watchlist` | watchlist | Listas de acompanhamento. |
 | `/alerts` | alerts | Alertas de mercado. |
@@ -185,7 +191,11 @@ Modelos principais (`backend/prisma/schema.prisma`):
 - **Ativos/cotações**: `Asset`, `Quote`, `Fundamental`, `Bar` (histórico).
 - **Conteúdo**: `News`, `NewsSentiment`, `MacroObservation`, `EconomicEvent`.
 - **CRM**: `Client`, `ClientInterest`, `ClientNote`, `Contact`, `Deposit`,
-  `RetentionScore`, `Task`.
+  `RetentionScore`, `RetentionStatusHistory`, `ClientEvent`, `Task`.
+- **Retenção**: `Client.retentionStage` (`RetentionStage`: TICKET / CONTACTED /
+  RECOVERY / RECOVERED / CHURNED) + `defaultStage` (raiz: novo/desconhecido →
+  TICKET; ACTIVE estável → RECOVERED; AT_RISK/PWM → RECOVERY; INACTIVE →
+  CONTACTED; CHURNED → CHURNED) quando o campo não está preenchido.
 - **Operacional**: `Alert`, `Watchlist`, `WatchlistAsset`, `Notification`,
   `Integration`, `AuditLog`, `AIRequest`, valores e papeis.
 
