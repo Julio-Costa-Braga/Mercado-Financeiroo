@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express'
 import { prisma } from '../../config/prisma'
 import { Errors } from '../../utils/errors'
+import { dispatch, EventTopics } from '../../config/events'
 import { generateClientSketch } from '../ai/ai.service'
 
 const CLIENT_SELECT = {
@@ -10,10 +11,13 @@ const CLIENT_SELECT = {
   phone: true,
   country: true,
   status: true,
-  churnRisk: true,
-  priorityScore: true,
+  retentionStage: true,
   riskProfile: true,
   clientType: true,
+  objective: true,
+  experience: true,
+  churnRisk: true,
+  priorityScore: true,
   onboardingCompletedAt: true,
   lastContactAt: true,
   lastLoginAt: true,
@@ -155,16 +159,45 @@ export async function createClient(req: Request, res: Response, next: NextFuncti
 export async function updateClient(req: Request, res: Response, next: NextFunction) {
   try {
     const { id } = req.params
-    const { name, email, phone, country, status, ownerId, experience, objective } = req.body
+    const {
+      name, email, phone, country, status, ownerId, experience, objective,
+      retentionStage, riskProfile, clientType,
+    } = req.body
 
     const before = await prisma.client.findUnique({ where: { id } })
-    if (!before) throw Errors.notFound('Cliente não encontrado')
+    if (!before) throw Errors.notFound('Cliente nǜo encontrado')
 
-    const client = await prisma.client.update({
-      where: { id },
-      data: { name, email, phone, country, status, ownerId, experience, objective },
-      select: CLIENT_SELECT,
-    })
+    const stageChanged =
+      retentionStage && before.retentionStage ? retentionStage !== before.retentionStage : retentionStage != null
+
+    const ops: any[] = [
+      prisma.client.update({
+        where: { id },
+        data: { name, email, phone, country, status, ownerId, experience, objective, retentionStage, riskProfile, clientType },
+        select: CLIENT_SELECT,
+      }),
+    ]
+
+    if (stageChanged) {
+      ops.push(
+        prisma.retentionStatusHistory.create({
+          data: {
+            clientId: id,
+            from: before.retentionStage || null,
+            to: retentionStage,
+          },
+        }),
+        prisma.clientEvent.create({
+          data: {
+            clientId: id,
+            type: 'RETENTION_STAGE_CHANGED',
+            meta: { from: before.retentionStage || 'default', to: retentionStage, via: 'edit' },
+          },
+        })
+      )
+    }
+
+    const [client] = await prisma.$transaction(ops)
 
     await prisma.auditLog.create({
       data: {
@@ -176,6 +209,10 @@ export async function updateClient(req: Request, res: Response, next: NextFuncti
         after: { name: client.name, status: client.status },
       },
     })
+
+    if (stageChanged) {
+      dispatch(EventTopics.CLIENT_UPDATED, { clientId: id, retentionStage })
+    }
 
     // Atualiza o esboco do cliente em background
     queueMicrotask(() => {

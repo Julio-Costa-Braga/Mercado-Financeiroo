@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Main } from '@/components/layout'
 import { Card, Spinner, StatusBadge, Button } from '@/components/ui'
+import ClientEditModal from '@/components/ClientEditModal'
 import { api } from '@/lib/api'
 import { useI18n } from '@/lib/i18n'
 
@@ -89,6 +90,7 @@ export default function RetentionPage() {
   const [dragged, setDragged] = useState<{ id: string; from: StageKey } | null>(null)
   const [over, setOver] = useState<StageKey | null>(null)
   const [moving, setMoving] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [error, setError] = useState('')
 
   const load = useCallback(async () => {
@@ -119,6 +121,27 @@ export default function RetentionPage() {
     }
     setOver(null)
     setMoving(true)
+    const toS = to.toUpperCase()
+    const fromS = dragged.from.toUpperCase()
+    // Métricas superiores também atualizam na hora (taxa de retenção / ativos / baixas)
+    setMetrics((prev) => {
+      if (!prev) return prev
+      let dChurned = 0
+      let dActive = 0
+      if (toS === 'CHURNED' && fromS !== 'CHURNED') dChurned += 1
+      if (fromS === 'CHURNED' && toS !== 'CHURNED') dChurned -= 1
+      if (toS === 'RECOVERED' && fromS !== 'RECOVERED') dActive += 1
+      if (fromS === 'RECOVERED' && toS !== 'RECOVERED') dActive -= 1
+      if (!dChurned && !dActive) return prev
+      const churned = Math.max(0, prev.churned + dChurned)
+      const activeClients = Math.max(0, prev.activeClients + dActive)
+      return {
+        ...prev,
+        churned,
+        activeClients,
+        retentionRate: prev.total > 0 ? Math.round(((prev.total - churned) / prev.total) * 100) : 0,
+      }
+    })
     // Otimista
     setData((prev) => {
       if (!prev) return prev
@@ -230,6 +253,7 @@ export default function RetentionPage() {
                   <div
                     key={c.id}
                     draggable
+                    onClick={() => setEditingId(c.id)}
                     onDragStart={(e) => {
                       e.dataTransfer.setData('text/plain', c.id)
                       e.dataTransfer.effectAllowed = 'move'
@@ -239,6 +263,7 @@ export default function RetentionPage() {
                       setDragged(null)
                       setOver(null)
                     }}
+                    title={t('clientModal.open')}
                     className={`group rounded-xl border bg-market-card border-market-border p-3 cursor-grab active:cursor-grabbing hover:border-market-accent/40 hover:shadow-lg hover:shadow-black/20 transition-all ${
                       dragged?.id === c.id ? 'opacity-40' : ''
                     } ${moving ? 'pointer-events-none' : ''}`}
@@ -346,6 +371,12 @@ export default function RetentionPage() {
         </Button>
         <span>{t('retention.hint')}</span>
       </div>
+
+      <ClientEditModal
+        clientId={editingId}
+        onClose={() => setEditingId(null)}
+        onChanged={() => load()}
+      />
     </Main>
   )
 }
