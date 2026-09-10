@@ -74,6 +74,21 @@ validação `zod` nos controllers, CORS explícito, eventos de domínio no backe
 ### clients — CRM de clientes
 - CRUD de clientes + `GET /priority` (priorização por score).
 - Interesses, notas e contatos por cliente (`/:id/interests`, `/:id/notes`...).
+- **Documentos** por cliente: `POST /:id/documents` (upload, até 12MB), `GET /:id/documents`,
+  `GET /:id/documents/:docId/download` e `DELETE /:id/documents/:docId`. Guard `requireTeam`
+  em toda a seção de clientes (CLIENT não acessa o CRM).
+- `Client.userId` (único) vincula o registro de cliente à conta do portal (`ClientDocument`
+  armazena nome, categoria, mimeType, tamanho e os bytes do arquivo em `Bytea`).
+
+### portal — Portal do cliente (área por papel)
+- Acesso exclusivo do papel `CLIENT` (`requireRole('CLIENT')`), resolvendo o cliente pelo
+  `userId` do usuário autenticado (posse sempre verificada nos dados).
+- `GET /portal/overview` — resumo: perfil, totais de depósitos/documentos/movimentações,
+  documentos recentes e alertas. `GET /portal/deposits` — histórico de movimentações.
+- Documentos do próprio cliente: `GET/POST /portal/documents`, `GET /portal/documents/:id/download`,
+  `DELETE /portal/documents/:id`.
+- Papéis do sistema: `ADMIN, MANAGER, RETENTION, SALES, RESEARCH, COMPLIANCE, CLIENT`.
+  Rotas de negócio usam `requireTeam` (equipe) ou `requireRole('CLIENT')` (portal).
 
 ### retention — Prevenção de churn
 - `GET /workbench`, `/metrics` e `POST /recalc/:id` — score de retenção e risco
@@ -112,6 +127,8 @@ validação `zod` nos controllers, CORS explícito, eventos de domínio no backe
   via `GROQ_API_KEY`; OpenAI continua como opção (`OPENAI_API_KEY`). Sem chave,
   opera em modo template (regras + dados reais da plataforma).
 
+### portal (backend) — ver seção 2
+
 ### health — Observabilidade
 - `GET /overview` — status de API, banco, cache e dependências (liveness).
 
@@ -142,9 +159,14 @@ validação `zod` nos controllers, CORS explícito, eventos de domínio no backe
 | `/admin` | admin | Gestão de usuários. |
 | `/audit` | audit | Auditoria. |
 | `/health` | health | Observabilidade. |
+| `/portal` | portal | **Área do cliente**: resumo da conta (carteira/depósitos/documentos). |
+| `/portal/deposits` | portal/deposits | Histórico de depósitos e movimentações. |
+| `/portal/documents` | portal/documents | Enviar, baixar e excluir documentos da própria conta. |
 
 Componentes compartilhados:
 - `src/components/layout.tsx` — sidebar + topbar + logout; agora multilíngue.
+  **Sidebar segmentada por papel**: CLIENT vê só o Portal; equipe vê Mercado/Operação e
+  (ADMIN/MANAGER) seções de sistema. Guard de rotas no `Main` redireciona acesso cruzado.
 - `src/components/ui.tsx` — Card, badges, tabela, spinner, formatadores.
 - `src/components/LanguageSwitcher.tsx` — seletor PT/EN/ES.
 
@@ -224,4 +246,5 @@ popula ativos/cotações/setores/notícias/clientes.
 | IA gratuita via Groq (chat, dicas, briefings, esboço, onboarding) | ✅ Concluído |
 | Histórico real de velas (Yahoo) para gráficos | ✅ Concluído |
 | Notificações/alertas em tempo real (Socket.IO) | ✅ Concluído |
+| Separar sistema por papel: CLIENT/equipe + portal do cliente (carteira, depósitos, documentos) + documentos no CRM | ✅ Concluído |
 | Tradução integral das demais telas do app | ⏳ Expansível |
