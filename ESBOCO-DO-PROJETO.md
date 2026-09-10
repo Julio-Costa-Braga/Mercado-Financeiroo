@@ -99,6 +99,30 @@ validação `zod` nos controllers, CORS explícito, eventos de domínio no backe
 - `POST /kanban/:id/move` — move o card entre etapas: atualiza o campo, grava
   `RetentionStatusHistory` + evento `RETENTION_STAGE_CHANGED`, sincroniza `status`
   (CHURNED / RECOVERED→ACTIVE) e notifica o owner do cliente.
+- Analistas (`RETENTION`) veem apenas os **seus** cards (filtro por `ownerId`);
+  CRM/ADMIN/MANAGER veem o board completo.
+
+### sales — Pipeline de Vendas / CRM
+- Fluxo: a **equipe de CRM** distribui prospects para vendedores (coluna
+  "1º Contato") — ao soltar o card, escolhe **qual vendedor** fica responsável.
+  Após o **primeiro depósito**, o vendedor confirma na coluna "1º Depósito" e o
+  cliente volta **automaticamente para a base do CRM** (limpo do vendedor).
+  O CRM então envia o cliente para um **Analista de Retenção** (coluna "Retenção",
+  escolhendo o responsável), que passa a vê-lo no kanban de retenção.
+- `GET /kanban` — board agrupado por `SalesStage` (`CRM_BASE` / `ASSIGNED` /
+  `CONTACTED` / `DEPOSITED` / `RETENTION` / `LOST`); vendedor vê só o seu
+  pipeline, CRM/ADMIN/MANAGER veem tudo + lista de colaboradores disponíveis.
+- `POST /kanban/:id/move` — regras por papel: vendedor move `CONTACTED`,
+  `DEPOSITED` (grava `soldById`, `soldAt`, `sentToCrmAt`, `firstDepositValue` e
+  limpa o owner) e `LOST` (com motivo/refund). CRM atribui a vendedor ou analista
+  (`assigneeId`), envia para retenção (etapa `TICKET` + `status=ACTIVE`) ou volta
+  o card para a base. Gera `ClientEvent` + `AuditLog` e notifica o novo responsável.
+- `GET /users?role=SALES|RETENTION` — colaboradores ativos para a distribuição.
+- `GET /metrics?sellerId=...` — **dashboard VENDAS**: nº de vendas, valor do 1º
+  depósito, enviados ao CRM, na retenção, reembolsos (venda perdida) e pipeline; o
+  CRM vê o comparativo de todos os vendedores.
+- **Handoff automático**: registrar um depósito (`POST /deposits`) para um cliente
+  em pipeline move o card para `DEPOSITED` sozinho (`autoSettleDeposit`).
 
 ### deposits — Operações/Depósitos
 - `GET /`, `/dashboard`, `/clients/:id` e `POST /` — lançamentos por cliente.
@@ -153,6 +177,7 @@ validação `zod` nos controllers, CORS explícito, eventos de domínio no backe
 | `/macro` | macro | Indicadores macro por região. |
 | `/calendar` | calendar | Calendário econômico. |
 | `/clients` | clients | CRM. |
+| `/vendas` | vendas | **Pipeline Vendas/CRM**: kanban por papel + dashboard individual por vendedor (nº de vendas, 1º depósito, enviados ao CRM, reembolsos). |
 | `/retention` | retention | Kanban anti-churn (drag & drop por etapas). |
 | `/deposits` | deposits | Operações/Depósitos. |
 | `/watchlist` | watchlist | Listas de acompanhamento. |
@@ -196,6 +221,9 @@ Modelos principais (`backend/prisma/schema.prisma`):
   RECOVERY / RECOVERED / CHURNED) + `defaultStage` (raiz: novo/desconhecido →
   TICKET; ACTIVE estável → RECOVERED; AT_RISK/PWM → RECOVERY; INACTIVE →
   CONTACTED; CHURNED → CHURNED) quando o campo não está preenchido.
+- **Vendas**: `Client.salesStage` (`SalesStage`: CRM_BASE / ASSIGNED / CONTACTED /
+  DEPOSITED / RETENTION / LOST) + campos `soldById`, `soldAt`, `sentToCrmAt`,
+  `firstDepositValue`, `refundedAt`, `salesLostReason`. Novo papel `CRM`.
 - **Operacional**: `Alert`, `Watchlist`, `WatchlistAsset`, `Notification`,
   `Integration`, `AuditLog`, `AIRequest`, valores e papeis.
 
@@ -257,4 +285,6 @@ popula ativos/cotações/setores/notícias/clientes.
 | Histórico real de velas (Yahoo) para gráficos | ✅ Concluído |
 | Notificações/alertas em tempo real (Socket.IO) | ✅ Concluído |
 | Separar sistema por papel: CLIENT/equipe + portal do cliente (carteira, depósitos, documentos) + documentos no CRM | ✅ Concluído |
+| Kanban de retenção: drag & drop, modal de edição no card, métricas otimistas, bug do score | ✅ Concluído |
+| Pipeline multi-kanban Vendas/CRM/Retenção: papel CRM, distribuição para vendedores e analistas, 1º depósito → volta automática à base, dashboard de vendas individual | ✅ Concluído |
 | Tradução integral das demais telas do app | ⏳ Expansível |
