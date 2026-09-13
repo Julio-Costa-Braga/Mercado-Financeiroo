@@ -5,7 +5,7 @@ import {
   indexDocument,
   indexRecentNews,
   listKnowledgeDocs,
-  ragStatus,
+  ragStatusDetailed,
   retrieveContext,
 } from './rag'
 
@@ -13,7 +13,7 @@ import {
 
 export async function getRagStatus(_req: Request, res: Response, next: NextFunction) {
   try {
-    res.json({ rag: ragStatus() })
+    res.json({ rag: await ragStatusDetailed() })
   } catch (err) {
     next(err)
   }
@@ -61,7 +61,7 @@ export async function ragSearch(req: Request, res: Response, next: NextFunction)
     const { query, k } = req.body as any
     if (!query) throw Errors.badRequest('query é obrigatória')
     const sources = await retrieveContext(String(query), parseInt(k) || 4)
-    res.json({ query, sources, rag: ragStatus() })
+    res.json({ query, sources, rag: await ragStatusDetailed() })
   } catch (err) {
     next(err)
   }

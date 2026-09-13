@@ -1,5 +1,5 @@
 import { prisma } from '../../config/prisma'
-import { embedText, embeddingEnabled, embeddingProvider, vectorLiteral } from './embeddings'
+import { embedText, embeddingEnabled, embeddingLastError, embeddingProvider, vectorLiteral } from './embeddings'
 
 // RAG - Base de conhecimento da plataforma.
 // Indexa documentos (docs/ajuda + conteúdo de investimento) em chunks com
@@ -67,6 +67,7 @@ export async function indexDocument(input: {
 
   const chunks = chunkText(content)
   const embedded = embeddingEnabled()
+  let embeddedChunks = 0
 
   let chunkCount = 0
   for (let i = 0; i < chunks.length; i += 1) {
@@ -84,10 +85,11 @@ export async function indexDocument(input: {
     })
     await setEmbedding(chunk.id, emb && emb.length ? emb : null)
     chunkCount += 1
+    embeddedChunks += emb && emb.length ? 1 : 0
   }
 
   await prisma.knowledgeDoc.update({ where: { id: doc.id }, data: { chunkCount } })
-  return { doc, chunks: chunkCount, embedded }
+  return { doc, chunks: chunkCount, embedded, embeddedChunks }
 }
 
 // Busca por similaridade (ou keyword se não houver embeddings).
@@ -213,5 +215,27 @@ export function ragStatus() {
   return {
     enabled: embeddingEnabled(),
     provider: embeddingProvider(),
+    lastError: embeddingLastError(),
+    docs: 0,
+    chunks: 0,
+    embeddedChunks: 0,
+  }
+}
+
+export async function ragStatusDetailed() {
+  const [docs, chunks, embedded] = await Promise.all([
+    prisma.knowledgeDoc.count(),
+    prisma.knowledgeChunk.count(),
+    prisma.$queryRawUnsafe<{ c: bigint }[]>(
+      `SELECT count(*) AS c FROM "KnowledgeChunk" WHERE embedding IS NOT NULL`
+    ),
+  ])
+  return {
+    enabled: embeddingEnabled(),
+    provider: embeddingProvider(),
+    lastError: embeddingLastError(),
+    docs: Number(docs),
+    chunks: Number(chunks),
+    embeddedChunks: Number(embedded[0]?.c ?? 0),
   }
 }

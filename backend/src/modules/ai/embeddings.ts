@@ -5,6 +5,12 @@
 
 export const EMBEDDING_DIM = 768
 
+let lastError: string | null = null
+
+export function embeddingLastError(): string | null {
+  return lastError
+}
+
 export function embeddingEnabled(): boolean {
   return !!(process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY)
 }
@@ -30,10 +36,15 @@ export async function embedText(text: string): Promise<number[] | null> {
           }),
         }
       )
-      if (!resp.ok) return null
+      if (!resp.ok) {
+        lastError = `gemini HTTP ${resp.status}: ${String(await resp.text()).slice(0, 200)}`
+        return null
+      }
       const json: any = await resp.json()
       const values = json?.embedding?.values
-      return Array.isArray(values) && values.length ? values : null
+      const ok = Array.isArray(values) && values.length
+      lastError = ok ? null : 'gemini retornou resposta sem embedding.values'
+      return ok ? values : null
     }
 
     if (process.env.OPENAI_API_KEY) {
@@ -49,14 +60,20 @@ export async function embedText(text: string): Promise<number[] | null> {
           dimensions: EMBEDDING_DIM,
         }),
       })
-      if (!resp.ok) return null
+      if (!resp.ok) {
+        lastError = `openai HTTP ${resp.status}: ${String(await resp.text()).slice(0, 200)}`
+        return null
+      }
       const json: any = await resp.json()
       const values = json?.data?.[0]?.embedding
+      lastError = Array.isArray(values) && values.length ? null : 'openai retornou resposta sem embedding'
       return Array.isArray(values) && values.length ? values : null
     }
 
+    lastError = 'nenhuma chave de embedding configurada'
     return null
-  } catch {
+  } catch (err: any) {
+    lastError = `embedding falhou: ${err?.message || String(err)}`
     return null
   }
 }
