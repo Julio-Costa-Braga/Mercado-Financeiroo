@@ -4,6 +4,7 @@
 // funciona, apenas sem relevância semântica. Dimensão fixa 768 (text-embedding-004).
 
 export const EMBEDDING_DIM = 768
+export const GEMINI_EMBEDDING_MODEL = 'gemini-embedding-001'
 
 let lastError: string | null = null
 
@@ -26,13 +27,14 @@ export async function embedText(text: string): Promise<number[] | null> {
   try {
     if (process.env.GEMINI_API_KEY) {
       const resp = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${process.env.GEMINI_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_EMBEDDING_MODEL}:embedContent?key=${process.env.GEMINI_API_KEY}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            model: 'models/text-embedding-004',
+            model: `models/${GEMINI_EMBEDDING_MODEL}`,
             content: { parts: [{ text: input }] },
+            outputDimensionality: EMBEDDING_DIM,
           }),
         }
       )
