@@ -1,8 +1,8 @@
 'use client'
 import React, { useCallback, useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Main } from '@/components/layout'
-import { Card, PageHeader, Spinner, StatCard, EmptyState, formatDate, Button } from '@/components/ui'
+import { Card, PageHeader, Spinner, StatCard, EmptyState, formatDate, Button, inputCls } from '@/components/ui'
 import { api } from '@/lib/api'
 import { useI18n } from '@/lib/i18n'
 
@@ -26,11 +26,34 @@ const TYPE_COLORS: Record<string, string> = {
 }
 
 export default function PortalDepositsPage() {
+  return (
+    <React.Suspense fallback={null}>
+      <PortalDeposits />
+    </React.Suspense>
+  )
+}
+
+function PortalDeposits() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { t } = useI18n()
   const [events, setEvents] = useState<FinancialEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [amount, setAmount] = useState('')
+  const [paying, setPaying] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  useEffect(() => {
+    const status = searchParams.get('stripe')
+    if (status === 'success') {
+      setMsg(t('portal.deposits.stripe.success'))
+      router.replace('/portal/deposits')
+    } else if (status === 'canceled') {
+      setMsg(t('portal.deposits.stripe.canceled'))
+      router.replace('/portal/deposits')
+    }
+  }, [searchParams, router, t])
 
   const load = useCallback(async () => {
     try {
@@ -56,6 +79,23 @@ export default function PortalDepositsPage() {
   const totalDeposits = events.filter((e) => ['DEPOSIT', 'INITIAL_DEPOSIT', 'REPEAT_DEPOSIT', 'FTD'].includes(e.type)).reduce((a, e) => a + e.amount, 0)
   const totalWithdrawals = events.filter((e) => e.type === 'WITHDRAWAL').reduce((a, e) => a + e.amount, 0)
 
+  async function startCheckout() {
+    const value = Number(amount)
+    if (!Number.isFinite(value) || value < 1) {
+      setMsg(t('portal.deposits.stripe.error'))
+      return
+    }
+    try {
+      setPaying(true)
+      setMsg('')
+      const d = await api.post<{ url: string }>('/payments/checkout', { amount: value })
+      window.location.href = d.url
+    } catch (err: any) {
+      setMsg(err.message || t('portal.deposits.stripe.error'))
+      setPaying(false)
+    }
+  }
+
   if (loading) return <Main><Spinner /></Main>
 
   return (
@@ -70,6 +110,30 @@ export default function PortalDepositsPage() {
         <StatCard label={t('portal.deposits.withdrawals')} value={`$${totalWithdrawals.toLocaleString('en-US')}`} tone="down" />
         <StatCard label={t('portal.deposits.net')} value={`$${(totalDeposits + totalWithdrawals).toLocaleString('en-US')}`} tone="accent" />
       </div>
+
+      <Card title={t('portal.deposits.stripe.title')} className="mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+          <div className="flex-1 max-w-xs">
+            <label className="block text-xs text-gray-500 mb-1">{t('portal.deposits.stripe.amount')}</label>
+            <div className="flex items-center gap-2">
+              <span className="text-gray-400">$</span>
+              <input
+                type="number"
+                min={1}
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder={t('portal.deposits.stripe.amountPh')}
+                className={inputCls}
+              />
+            </div>
+          </div>
+          <Button onClick={startCheckout} disabled={paying}>
+            {paying ? t('portal.deposits.stripe.loading') : t('portal.deposits.stripe.submit')}
+          </Button>
+        </div>
+        <p className="text-xs text-gray-500 mt-3">{t('portal.deposits.stripe.hint')}</p>
+        {msg && <p className="text-xs text-market-accent mt-2">{msg}</p>}
+      </Card>
 
       <Card title={t('portal.deposits.history')}>
         {events.length === 0 ? (

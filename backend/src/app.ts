@@ -41,6 +41,8 @@ app.use(
     credentials: true,
   })
 )
+// Webhook do Stripe precisa do corpo em buffer (bruto) para validar a assinatura.
+app.use('/api/v1/payments/webhook', express.raw({ type: () => true }))
 app.use(express.json({ limit: '2mb' }))
 
 // Rate limiting

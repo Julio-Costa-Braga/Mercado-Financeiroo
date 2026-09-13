@@ -91,6 +91,7 @@ const WATCHLIST_NAV: NavItem[] = [
 const ADMIN_NAV: NavItem[] = [
   { href: '/notifications', labelKey: 'nav.notifications', icon: 'notifications', module: 'notifications' },
   { href: '/integrations', labelKey: 'nav.integrations', icon: 'integrations', module: 'integrations' },
+  { href: '/admin/knowledge', labelKey: 'nav.knowledge', icon: 'assistant', module: 'admin' },
   { href: '/admin', labelKey: 'nav.admin', icon: 'admin', module: 'admin' },
   { href: '/audit', labelKey: 'nav.audit', icon: 'audit', module: 'audit' },
   { href: '/health', labelKey: 'nav.health', icon: 'health', module: 'health' },
@@ -114,6 +115,7 @@ const PATH_TITLES: Array<{ prefix: string; labelKey: string }> = [
   { prefix: '/assistant', labelKey: 'nav.assistant' },
   { prefix: '/notifications', labelKey: 'nav.notifications' },
   { prefix: '/integrations', labelKey: 'nav.integrations' },
+  { prefix: '/admin/knowledge', labelKey: 'nav.knowledge' },
   { prefix: '/admin', labelKey: 'nav.admin' },
   { prefix: '/audit', labelKey: 'nav.audit' },
   { prefix: '/health', labelKey: 'nav.health' },

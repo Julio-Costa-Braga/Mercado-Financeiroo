@@ -687,6 +687,37 @@ model AiRequest {
   @@index([createdAt])
 }
 
+// ============ RAG / BASE DE CONHECIMENTO ============
+
+model KnowledgeDoc {
+  id         String   @id @default(uuid())
+  title      String
+  category   String   @default("PLATFORM") // PLATFORM | INVESTING | NEWS
+  content    String   @db.Text
+  source     String?
+  status     String   @default("READY")
+  chunkCount Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  chunks KnowledgeChunk[]
+
+  @@index([category])
+}
+
+model KnowledgeChunk {
+  id         String   @id @default(uuid())
+  docId      String
+  doc        KnowledgeDoc @relation(fields: [docId], references: [id], onDelete: Cascade)
+  chunkIndex Int
+  content    String   @db.Text
+  embedding  Unsupported("vector(768)")?
+  createdAt  DateTime @default(now())
+
+  @@unique([docId, chunkIndex])
+  @@index([docId])
+}
+
 // ============ AUDIT ============
 
 model AuditLog {

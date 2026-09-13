@@ -1,10 +1,12 @@
 import { prisma } from '../../config/prisma'
 import { callLLM, getActiveModel } from './llm'
+import { retrieveContext } from './rag'
 
 // M23 - Chat IA
 // Responde perguntas sobre investimentos, mercado financeiro e cripto.
-// Com GROQ_API_KEY/OPENAI_API_KEY delega ao modelo (com contexto do mercado);
-// sem chave usa regras tematicas com dados reais da plataforma.
+// Com GROQ_API_KEY/OPENAI_API_KEY delega ao modelo (com contexto do mercado
+// e do RAG/base de conhecimento); sem chave usa regras tematicas com dados
+// reais da plataforma.
 
 export interface ChatMessage {
   role: 'user' | 'assistant'
@@ -214,19 +216,44 @@ export async function answerQuestion(message: string, history: ChatMessage[] = [
   model: string
 }> {
   const snapshot = await getSnapshot()
+
+  // RAG: contexto da base de conhecimento (docs da plataforma + notícias).
+  const sources = await retrieveContext(message, 4)
+  const ragBlock =
+    sources.length > 0
+      ? [
+          '',
+          '## Base de conhecimento (contexto de apoio)',
+          ...sources.map(
+            (s, i) => `[${i + 1}] ${s.title} · fonte: ${s.category}\n${s.content.slice(0, 1000)}`
+          ),
+        ].join('\n')
+      : ''
+
   const template = await buildTemplateAnswer(message)
 
   const model = getActiveModel()
   if (model === 'template') {
-    return { reply: template, ai: false, model: 'template' }
+    const contextReply =
+      sources.length > 0
+        ? [
+            template,
+            '',
+            'Base de conhecimento relacionada:',
+            ...sources.map((s) => `- ${s.title}: ${s.content.slice(0, 400)}`),
+          ].join('\n')
+        : template
+    return { reply: contextReply, ai: false, model: 'template' }
   }
 
   const system = [
     'Você é o assistente de investimentos da plataforma Market Now.',
     'Responda em português, de forma clara, didática e com noções de gestão de risco.',
     'Use os dados de mercado abaixo para contextualizar quando fizer sentido.',
+    'Se houver base de conhecimento (contexto de apoio), use-a como fonte autoritativa e cite a origem no fim da resposta.',
     '',
     snapshot.text,
+    ragBlock,
   ].join('\n')
 
   const messages = [
