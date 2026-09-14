@@ -18,7 +18,7 @@ import { getActiveModel } from './llm'
 
 // M20 - IA/Assistente
 // MVP: briefings gerados a partir dos dados da plataforma (template/data-driven).
-// Com GROQ_API_KEY (gratuita) ou OPENAI_API_KEY, o prompt Ã© enviado Ã  IA para geraÃ§Ã£o real.
+// Com GROQ_API_KEY (gratuita) ou OPENAI_API_KEY, o prompt é enviado à IA para geração real.
 
 type BriefingScope =
   | { type: 'platform' }
@@ -67,11 +67,11 @@ async function generateBriefing(scope: BriefingScope): Promise<{ sections: strin
 
       const data = { activeClients, atRisk, churned, openTasks, weekEvents, gainers, losers, escalated }
       const sections = [
-        `## VisÃ£o Geral\n- Clientes ativos: ${activeClients} Â· Em risco: ${atRisk} Â· Perdidos: ${churned}.\n- Tarefas em aberto: ${openTasks}.`,
+        `## Visão Geral\n- Clientes ativos: ${activeClients} · Em risco: ${atRisk} · Perdidos: ${churned}.\n- Tarefas em aberto: ${openTasks}.`,
         `## Destaques do Mercado\nGanhos do dia: ${gainers.map((g) => `${g.asset.ticker} (${fmt(g.changePct1D)}%)`).join(', ')}.\nPerdas: ${losers.map((l) => `${l.asset.ticker} (${fmt(l.changePct1D)}%)`).join(', ')}.`,
-        `## Sinais de RetenÃ§Ã£o\nClientes com risco elevado para priorizar: ${escalated.map((c) => `- ${c.name} (churn ${c.churnRisk}%)`).join('\n') || 'nenhum no momento'}.`,
-        `## PrÃ³ximos Eventos\n${weekEvents.map((e) => `- ${e.date.toISOString().slice(0, 10)}: ${e.country} ${e.indicator} (${e.impact})`).join('\n') || 'Nenhum evento econÃ´mico nos prÃ³ximos 7 dias.'}`,
-        `## RecomendaÃ§Ãµes\nRetenÃ§Ã£o: acione clientes ${atRisk > 0 ? 'em risco antes do fim da semana' : 'com histÃ³rico de inatividade'} e conclua as tarefas em aberto.`,
+        `## Sinais de Retenção\nClientes com risco elevado para priorizar: ${escalated.map((c) => `- ${c.name} (churn ${c.churnRisk}%)`).join('\n') || 'nenhum no momento'}.`,
+        `## Próximos Eventos\n${weekEvents.map((e) => `- ${e.date.toISOString().slice(0, 10)}: ${e.country} ${e.indicator} (${e.impact})`).join('\n') || 'Nenhum evento econômico nos próximos 7 dias.'}`,
+        `## Recomendações\nRetenção: acione clientes ${atRisk > 0 ? 'em risco antes do fim da semana' : 'com histórico de inatividade'} e conclua as tarefas em aberto.`,
       ]
       return { sections, data }
     }
@@ -90,20 +90,20 @@ async function generateBriefing(scope: BriefingScope): Promise<{ sections: strin
           },
         },
       })
-      if (!asset) throw Errors.notFound('Ativo nÃ£o encontrado')
+      if (!asset) throw Errors.notFound('Ativo não encontrado')
       const data = { asset }
       const q = asset.quotes[0]
       const f = asset.fundamentals[0]
 
       const sections = [
-        `## VisÃ£o Geral\n${asset.name} (${asset.ticker}) Â· ${asset.exchange ?? 'â€”'} Â· ${asset.type}.\nÃšltima cotaÃ§Ã£o: ${asset.currency} ${fmt(q?.price)} (${fmt(q?.changePct1D)}% em 1D).`,
+        `## Visão Geral\n${asset.name} (${asset.ticker}) · ${asset.exchange ?? 'â€”'} · ${asset.type}.\nÃšltima cotação: ${asset.currency} ${fmt(q?.price)} (${fmt(q?.changePct1D)}% em 1D).`,
         `## Fundamentos\n${
           f
-            ? `Mkt Cap: ${fmtCompact(f.marketCap)} Â· P/L: ${fmt(f.peRatio, 1)} Â· Div Yield: ${fmt(f.dividendYield, 2)}%\nPreÃ§o/Vendas: ${fmt(f.psRatio, 1)} Â· PreÃ§o/Valor: ${fmt(f.pbRatio, 1)} Â· EV/EBITDA: ${fmt(f.evEbitda, 1)}`
-            : 'Fundamentos nÃ£o disponÃ­veis.'}`,
-        `## NotÃ­cias Recentes\n${asset.newsLinks.map((n) => `- ${n.news.title}`).join('\n') || 'Sem notÃ­cias vinculadas.'}`,
-        `## AnÃ¡lise Fundamental\n${analyzeFundamentals({ peRatio: f?.peRatio, dividendYield: f?.dividendYield, marketCap: f?.marketCap, roe: f?.roe, roa: f?.roa })}`,
-        `## RecomendaÃ§Ã£o\n${generateRecommendation({ peRatio: f?.peRatio, dividendYield: f?.dividendYield, marketCap: f?.marketCap, roe: f?.roe })}`,
+            ? `Mkt Cap: ${fmtCompact(f.marketCap)} · P/L: ${fmt(f.peRatio, 1)} · Div Yield: ${fmt(f.dividendYield, 2)}%\nPreço/Vendas: ${fmt(f.psRatio, 1)} · Preço/Valor: ${fmt(f.pbRatio, 1)} · EV/EBITDA: ${fmt(f.evEbitda, 1)}`
+            : 'Fundamentos não disponíveis.'}`,
+        `## Notícias Recentes\n${asset.newsLinks.map((n) => `- ${n.news.title}`).join('\n') || 'Sem notícias vinculadas.'}`,
+        `## Análise Fundamental\n${analyzeFundamentals({ peRatio: f?.peRatio, dividendYield: f?.dividendYield, marketCap: f?.marketCap, roe: f?.roe, roa: f?.roa })}`,
+        `## Recomendação\n${generateRecommendation({ peRatio: f?.peRatio, dividendYield: f?.dividendYield, marketCap: f?.marketCap, roe: f?.roe })}`,
       ]
       return { sections, data }
     }
@@ -120,7 +120,7 @@ async function generateBriefing(scope: BriefingScope): Promise<{ sections: strin
           scores: { orderBy: { createdAt: 'desc' }, take: 1 },
         },
       })
-      if (!client) throw Errors.notFound('Cliente nÃ£o encontrado')
+      if (!client) throw Errors.notFound('Cliente não encontrado')
       const data = { client }
       const lastScore = client.scores[0]
       const watchlistAssets = client.watchlists.flatMap((w) => w.assets.map((a) => a.asset.ticker))
@@ -129,11 +129,11 @@ async function generateBriefing(scope: BriefingScope): Promise<{ sections: strin
         .reduce((a, e) => a + e.amount, 0)
 
       const sections = [
-        `## Perfil\n${client.name} Â· ${client.country ?? 'â€”'} Â· Desde ${new Date(client.createdAt).toLocaleDateString('pt-BR')}.\nStatus: ${client.status} Â· Churn risk: ${client.churnRisk}%`,
+        `## Perfil\n${client.name} · ${client.country ?? 'â€”'} · Desde ${new Date(client.createdAt).toLocaleDateString('pt-BR')}.\nStatus: ${client.status} · Churn risk: ${client.churnRisk}%`,
         `## Interesses e Investimentos\nInteresses: ${client.interests.map((i) => i.interest).join(', ') || 'nenhum'}. Watchlist: ${watchlistAssets.join(', ') || 'nenhuma'}.`,
-        `## Status de RetenÃ§Ã£o\nScore: ${lastScore?.score ?? 'â€”'} Â· Ãšltimo contato: ${client.lastContactAt ? new Date(client.lastContactAt).toLocaleDateString('pt-BR') : 'nunca'}`,
-        `## Atividades Recentes\n${client.financialEvents.map((e) => `- ${e.date.toISOString().slice(0, 10)} ${e.type}: ${fmt(e.amount)} ${e.currency}`).join('\n') || 'Sem movimentaÃ§Ãµes'}\nDepÃ³sitos totais: ${fmt(totalDeposits)} USD`,
-        `## AÃ§Ãµes Recomendadas\n${generateClientActions(client)}`,
+        `## Status de Retenção\nScore: ${lastScore?.score ?? 'â€”'} · Ãšltimo contato: ${client.lastContactAt ? new Date(client.lastContactAt).toLocaleDateString('pt-BR') : 'nunca'}`,
+        `## Atividades Recentes\n${client.financialEvents.map((e) => `- ${e.date.toISOString().slice(0, 10)} ${e.type}: ${fmt(e.amount)} ${e.currency}`).join('\n') || 'Sem movimentações'}\nDepósitos totais: ${fmt(totalDeposits)} USD`,
+        `## Ações Recomendadas\n${generateClientActions(client)}`,
       ]
       return { sections, data }
     }
@@ -143,13 +143,13 @@ async function generateBriefing(scope: BriefingScope): Promise<{ sections: strin
         where: { sector: scope.sector, type: 'STOCK' },
         include: { quotes: { orderBy: { updatedAt: 'desc' }, take: 1 } },
       })
-      if (assets.length === 0) throw Errors.notFound('Setor nÃ£o encontrado')
+      if (assets.length === 0) throw Errors.notFound('Setor não encontrado')
       const avgChange = assets.reduce((a, x) => a + (x.quotes[0]?.changePct1D ?? 0), 0) / (assets.length || 1)
       const data = { assets }
       const sections = [
-        `## VisÃ£o Geral\nSetor: ${scope.sector} Â· ${assets.length} ativos Â· VariaÃ§Ã£o mÃ©dia ${fmt(avgChange, 2)}%.`,
+        `## Visão Geral\nSetor: ${scope.sector} · ${assets.length} ativos · Variação média ${fmt(avgChange, 2)}%.`,
         `## Destaques\n${assets.map((a) => `- ${a.ticker} ${a.name}: ${fmt(a.quotes[0]?.changePct1D)}%`).join('\n')}`,
-        `## RecomendaÃ§Ãµes\nObserve os ativos com momentum positivo e avalie cautela nos com variaÃ§Ã£o negativa relevante.`,
+        `## Recomendações\nObserve os ativos com momentum positivo e avalie cautela nos com variação negativa relevante.`,
       ]
       return { sections, data }
     }
@@ -166,9 +166,9 @@ async function generateBriefing(scope: BriefingScope): Promise<{ sections: strin
       })
       const mentioned = [...new Set(symbols.map((s) => s.asset.ticker))].join(', ')
       const sections = [
-        `## Manchetes\n${articles.map((n) => `- ${n.title}`).join('\n') || 'Sem notÃ­cias.'}`,
-        `## Impacto no Mercado\nAtivos citados: ${mentioned || 'â€”'} Â· Setores em destaque: ${[...new Set(articles.map((a) => a.sector).filter(Boolean))].slice(0, 5).join(', ') || 'â€”'}`,
-        `## Principais Temas\nResumo consolidado das ${articles.length} notÃ­cias mais recentes por relevÃ¢ncia.`,
+        `## Manchetes\n${articles.map((n) => `- ${n.title}`).join('\n') || 'Sem notícias.'}`,
+        `## Impacto no Mercado\nAtivos citados: ${mentioned || 'â€”'} · Setores em destaque: ${[...new Set(articles.map((a) => a.sector).filter(Boolean))].slice(0, 5).join(', ') || 'â€”'}`,
+        `## Principais Temas\nResumo consolidado das ${articles.length} notícias mais recentes por relevância.`,
       ]
       return { sections, data }
     }
@@ -186,11 +186,11 @@ function generateClientActions(client: any) {
   if (client.interests && client.interests.length === 0) {
     actions.push('Atualizar interesses de investimento do cliente.')
   }
-  if (actions.length === 0) actions.push('Manter frequÃªncia de contato semanal.')
+  if (actions.length === 0) actions.push('Manter frequência de contato semanal.')
   return actions.map((a) => `- ${a}`).join('\n')
 }
 
-// Converte BigInt (nÃ£o serializÃ¡vel em JSON) e Date para formatos seguros
+// Converte BigInt (não serializável em JSON) e Date para formatos seguros
 function sanitizeForJson(v: any): any {
   if (v == null) return v
   if (typeof v === 'bigint') return v.toString()
@@ -211,17 +211,17 @@ export async function getBriefing(req: Request, res: Response, next: NextFunctio
     let briefingScope: BriefingScope
     switch (scope) {
       case 'asset': {
-        if (!id) throw Errors.badRequest('ParÃ¢metro id (ticker) Ã© obrigatÃ³rio para scope=asset')
+        if (!id) throw Errors.badRequest('Parâmetro id (ticker) é obrigatório para scope=asset')
         briefingScope = { type: 'asset', ticker: String(id) }
         break
       }
       case 'client': {
-        if (!id) throw Errors.badRequest('ParÃ¢metro id (clientId) Ã© obrigatÃ³rio para scope=client')
+        if (!id) throw Errors.badRequest('Parâmetro id (clientId) é obrigatório para scope=client')
         briefingScope = { type: 'client', clientId: String(id) }
         break
       }
       case 'sector': {
-        if (!id) throw Errors.badRequest('ParÃ¢metro id (sector) Ã© obrigatÃ³rio para scope=sector')
+        if (!id) throw Errors.badRequest('Parâmetro id (sector) é obrigatório para scope=sector')
         briefingScope = { type: 'sector', sector: String(id) }
         break
       }
@@ -298,11 +298,11 @@ export async function submitOnboarding(req: Request, res: Response, next: NextFu
       answers: Array<{ questionId: string; value: number }>
     }
     if (!clientId || !Array.isArray(answers) || answers.length === 0) {
-      throw Errors.badRequest('clientId e respostas (answers) sÃ£o obrigatÃ³rios')
+      throw Errors.badRequest('clientId e respostas (answers) são obrigatórios')
     }
 
     const client = await prisma.client.findUnique({ where: { id: clientId } })
-    if (!client) throw Errors.notFound('Cliente nÃ£o encontrado')
+    if (!client) throw Errors.notFound('Cliente não encontrado')
 
     const profile = calculateProfile(answers)
 
@@ -352,7 +352,7 @@ export async function postChat(req: Request, res: Response, next: NextFunction) 
       history?: Array<{ role: 'user' | 'assistant'; content: string }>
     }
     if (!message || !String(message).trim()) {
-      throw Errors.badRequest('Mensagem nÃ£o pode ser vazia')
+      throw Errors.badRequest('Mensagem não pode ser vazia')
     }
 
     const { reply, ai, model } = await answerQuestion(String(message).trim(), Array.isArray(history) ? history : [])
@@ -405,7 +405,7 @@ export async function getTips(req: Request, res: Response, next: NextFunction) {
   }
 }
 
-// ---------- EsboÃ§o automÃ¡tico do cliente ----------
+// ---------- Esboço automático do cliente ----------
 
 export async function getClientSketch(req: Request, res: Response, next: NextFunction) {
   try {
@@ -415,7 +415,7 @@ export async function getClientSketch(req: Request, res: Response, next: NextFun
     const record = await registerAiRequest({
       userId: req.user!.id,
       type: 'sketch:client',
-      question: `EsboÃ§o do cliente ${client.name}`,
+      question: `Esboço do cliente ${client.name}`,
       input: { clientId },
       output: { sketch },
     })

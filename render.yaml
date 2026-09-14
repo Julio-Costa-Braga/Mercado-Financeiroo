@@ -25,4 +25,24 @@ services:
       - key: REDIS_URL
         value: ""
       - key: CORS_ORIGINS
-        value: https://mercado-financeiro.vercel.app
+        value: "https://mercado-financeiroo.vercel.app,http://localhost:3000"
+      # LLM (chat/briefings): Groq é o provider padrão; OpenAI é fallback
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        sync: false
+      # RAG embeddings (vetorial 768d): Gemini free ou OpenAI text-embedding-3-small
+      - key: GEMINI_API_KEY
+        sync: false
+      # Stripe (depósito em conta)
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      # Frontend (redirect pós-checkout do Stripe)
+      - key: FRONTEND_URL
+        value: https://mercado-financeiroo.vercel.app

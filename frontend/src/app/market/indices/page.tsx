@@ -1,5 +1,5 @@
 'use client'
-import AssetTable from '../asset-table'
+import AssetTable from '@/components/AssetTable'
 
 export default function IndicesPage() {
   return <AssetTable title="Índices" type="INDEX" />

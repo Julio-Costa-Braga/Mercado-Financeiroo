@@ -151,11 +151,35 @@ validação `zod` nos controllers, CORS explícito, eventos de domínio no backe
 - `GET /clients/:clientId/sketch` — esboço automático do cliente (persistido
   como nota `[IA] Esboco do cliente`).
 - `POST /chat` — chat com IA para tirar dúvidas e pedir "palpites" de subida/
-  queda. Contexto = snapshot real do mercado (BTC/ETH/gainers/losers).
+  queda. Contexto = snapshot real do mercado (BTC/ETH/gainers/losers) + **RAG**:
+  base de conhecimento (docs da plataforma + conteúdo de investimento).
 - `GET /requests` — histórico de solicitações de IA.
+- **RAG / Base de conhecimento** (`/ai/rag/*`, gestão com módulo `admin`):
+  - `GET /status` — provider atual (vetorial vs keyword).
+  - `GET /docs`, `POST /docs`, `DELETE /docs/:id` — CRUD de documentos
+    (categorias `PLATFORM`, `INVESTING`, `NEWS`; chunk 1200 chars / overlap 160).
+  - `POST /news/index?limit=20` — indexa as notícias mais recentes.
+  - `POST /search` — busca semântica top-k (usa embeddings ou fallback keyword).
+  - **Embeddings:** Gemini `text-embedding-004` (free tier, 768 dims) via
+    `GEMINI_API_KEY`; fallback OpenAI `text-embedding-3-small`
+    (`dimensions:768`); **sem chave → modo keyword** (ILIKE) para não quebrar.
+  - **Storage:** pgvector no Neon (`vector(768)`), escrita via raw SQL
+    (`'[...]'::vector`).
 - **Provider:** Groq (plano gratuito, `llama-3.3-70b` → hoje `openai/gpt-oss-120b`)
   via `GROQ_API_KEY`; OpenAI continua como opção (`OPENAI_API_KEY`). Sem chave,
   opera em modo template (regras + dados reais da plataforma).
+
+### payments — Pagamentos (Stripe)
+- `POST /payments/checkout` (papel `CLIENT`) — cria Checkout Session hosted
+  (mode payment; moedas usd/brl/eur; valor 1–100000) e devolve `{ url }`.
+- `POST /payments/webhook` (público) — verifica assinatura HMAC-SHA256
+  (`Stripe-Version: 2024-06-20`) sobre o body **bruto**; em
+  `checkout.session.completed` cria `FinancialEvent` tipo `DEPOSIT`
+  (idempotente por `meta.stripe.sessionId`), audita e dispara
+  `autoSettleDeposit` (handoff automático do 1º depósito).
+- **Config:** `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET` (sem chave, o
+  checkout responde "Pagamentos online indisponíveis"); `FRONTEND_URL` para o
+  redirect de sucesso/cancelamento.
 
 ### portal (backend) — ver seção 2
 
@@ -188,10 +212,11 @@ validação `zod` nos controllers, CORS explícito, eventos de domínio no backe
 | `/notifications` | notifications | Central de notificações. |
 | `/integrations` | integrations | Proveedores. |
 | `/admin` | admin | Gestão de usuários — papel, time e **acessos por área** (módulos). |
+| `/admin/knowledge` | admin/knowledge | **Base de Conhecimento (RAG)**: status, indexar docs, indexar notícias e testar busca. |
 | `/audit` | audit | Auditoria. |
 | `/health` | health | Observabilidade. |
 | `/portal` | portal | **Área do cliente**: resumo da conta (carteira/depósitos/documentos). |
-| `/portal/deposits` | portal/deposits | Histórico de depósitos e movimentações. |
+| `/portal/deposits` | portal/deposits | Histórico de depósitos/movimentações + **Depósito via Stripe** (valor → checkout → redirect). |
 | `/portal/documents` | portal/documents | Enviar, baixar e excluir documentos da própria conta. |
 
 Componentes compartilhados:
@@ -264,6 +289,10 @@ popula ativos/cotações/setores/notícias/clientes.
   - Env IA gratuita: `GROQ_API_KEY` (chave do plano gratuito) e, opcional,
     `GROQ_MODEL` (padrão `openai/gpt-oss-120b`). `OPENAI_API_KEY` continua
     suportada como alternativa.
+  - Env RAG: `GEMINI_API_KEY` (embeddings vetoriais free tier; sem ela, modo
+    keyword). `OPENAI_API_KEY` também ativa embeddings.
+  - Env Stripe: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `FRONTEND_URL`.
+    Webhook a cadastrar no Stripe: `https://mercado-financeiroo.onrender.com/api/v1/payments/webhook`.
   - Env feed: `MARKET_UPDATE_INTERVAL_MS` (padrão 10 min).
 - **Frontend — Vercel** (`mercado-financeiroo.vercel.app`)
   - Importar repositório, Root `frontend/`, Framework Next.js.
@@ -288,4 +317,7 @@ popula ativos/cotações/setores/notícias/clientes.
 | Kanban de retenção: drag & drop, modal de edição no card, métricas otimistas, bug do score | ✅ Concluído |
 | Pipeline multi-kanban Vendas/CRM/Retenção: papel CRM, distribuição para vendedores e analistas, 1º depósito → volta automática à base, dashboard de vendas individual | ✅ Concluído |
 | Acessos por funcionário: `User.modules` + módulo por área (sidebar filtra; guarda `requireModules` no backend); defaults por papel (Vendedor não vê Retenção e vice-versa); Base de Clientes no CRM p/ encaminhar | ✅ Concluído |
+| **RAG / Base de Conhecimento**: pgvector no Neon (768d), embeddings Gemini/OpenAI com fallback keyword, docs da plataforma + notícias no chat da IA, página `/admin/knowledge` (indexar/gerir/testar) | ✅ Concluído |
+| **Depósito via Stripe**: checkout hosted no Portal (CLIENT), webhook com assinatura, `FinancialEvent` idempotente + handoff automático do 1º depósito | ✅ Concluído |
+| Ativar `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET` no Render + cadastrar webhook no painel Stripe | ⏳ Pendente (depende de chaves do usuário) |
 | Tradução integral das demais telas do app | ⏳ Expansível |

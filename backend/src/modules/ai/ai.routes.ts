@@ -16,7 +16,7 @@ import {
   ragIndexNews,
   ragListDocs,
   ragSearch,
-} from './rag.routes'
+} from './rag.controller'
 
 const router = Router()
 

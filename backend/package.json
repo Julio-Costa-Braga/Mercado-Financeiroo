@@ -7,12 +7,11 @@
         "dev": "tsx watch src/server.ts",
         "build": "tsc",
         "start": "node dist/server.js",
+        "typecheck": "tsc --noEmit",
         "db:generate": "prisma generate",
         "db:push": "prisma db push",
         "db:migrate": "prisma migrate dev",
-        "db:seed": "tsx prisma/seed.ts",
-        "lint": "eslint src --ext .ts",
-        "test": "vitest"
+        "db:seed": "tsx prisma/seed.ts"
     },
     "dependencies": {
         "@prisma/client": "^6.0.0",
@@ -41,8 +40,7 @@
         "@types/qrcode": "^1.5.5",
         "prisma": "^6.0.0",
         "tsx": "^4.19.0",
-        "typescript": "^5.6.0",
-        "vitest": "^2.1.0"
+        "typescript": "^5.6.0"
     },
     "overrides": {
         "qs": "6.16.0",
