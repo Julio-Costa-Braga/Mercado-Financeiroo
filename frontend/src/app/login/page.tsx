@@ -302,13 +302,6 @@ export default function LoginPage() {
               </>
             )}
           </div>
-
-          <div className="mt-5 flex items-center justify-center gap-2 text-xs text-gray-600">
-            <span className="text-gray-500">{t('login.demo.caption')}:</span>
-            <code className="px-2 py-0.5 bg-market-card border border-market-border rounded-md text-gray-400 font-mono">
-              {t('login.demo.creds')}
-            </code>
-          </div>
         </div>
       </div>
     </div>
