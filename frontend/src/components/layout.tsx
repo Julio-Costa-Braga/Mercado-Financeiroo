@@ -271,6 +271,7 @@ export function Sidebar() {
   const pathname = usePathname()
   const { t } = useI18n()
   const [user, setUser] = useState<User | null>(null)
+  const [loaded, setLoaded] = useState(false)
 
   const loadUser = useCallback(async () => {
     try {
@@ -278,11 +279,14 @@ export function Sidebar() {
       setUser(data.user)
     } catch {
       setUser(null)
+    } finally {
+      setLoaded(true)
     }
   }, [])
 
   useEffect(() => {
     if (api.getToken()) loadUser()
+    else setLoaded(true)
   }, [loadUser])
 
   async function handleLogout() {
@@ -312,7 +316,9 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
-        {isClient ? (
+        {!loaded ? (
+          <div className="px-3 py-2 text-xs text-gray-600">Carregando…</div>
+        ) : isClient ? (
           <>
             <SidebarSection items={CLIENT_NAV} pathname={pathname} />
           </>
@@ -327,11 +333,11 @@ export function Sidebar() {
 
       <div className="p-3 border-t border-market-border">
         <div className="border-b border-market-border pb-2 mb-2">
-          {(isManager || isClient) && (
+          {loaded && (isManager || isClient) && (
             <SidebarSection items={filterNav(ADMIN_NAV)} pathname={pathname} />
           )}
         </div>
-        {user && (
+        {loaded && user && (
           <div className="flex items-center gap-3 px-2 py-2">
             <div className="flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-br from-blue-500/30 to-indigo-600/30 border border-market-accent/30 text-xs font-bold text-market-accent">
               {initials}
