@@ -78,6 +78,7 @@ function PortalDeposits() {
 
   const totalDeposits = events.filter((e) => ['DEPOSIT', 'INITIAL_DEPOSIT', 'REPEAT_DEPOSIT', 'FTD'].includes(e.type)).reduce((a, e) => a + e.amount, 0)
   const totalWithdrawals = events.filter((e) => e.type === 'WITHDRAWAL').reduce((a, e) => a + e.amount, 0)
+  const hasFirstDeposit = events.some((e) => ['INITIAL_DEPOSIT', 'FTD', 'DEPOSIT', 'REPEAT_DEPOSIT'].includes(e.type))
 
   async function startCheckout() {
     const value = Number(amount)
@@ -112,25 +113,33 @@ function PortalDeposits() {
       </div>
 
       <Card title={t('portal.deposits.stripe.title')} className="mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-end gap-3">
-          <div className="flex-1 max-w-xs">
-            <label className="block text-xs text-gray-500 mb-1">{t('portal.deposits.stripe.amount')}</label>
-            <div className="flex items-center gap-2">
-              <span className="text-gray-400">$</span>
-              <input
-                type="number"
-                min={1}
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder={t('portal.deposits.stripe.amountPh')}
-                className={inputCls}
-              />
+        {hasFirstDeposit ? (
+          <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+            <div className="flex-1 max-w-xs">
+              <label className="block text-xs text-gray-500 mb-1">{t('portal.deposits.stripe.amount')}</label>
+              <div className="flex items-center gap-2">
+                <span className="text-gray-400">$</span>
+                <input
+                  type="number"
+                  min={1}
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder={t('portal.deposits.stripe.amountPh')}
+                  className={inputCls}
+                />
+              </div>
             </div>
+            <Button onClick={startCheckout} disabled={paying}>
+              {paying ? t('portal.deposits.stripe.loading') : t('portal.deposits.stripe.submit')}
+            </Button>
           </div>
-          <Button onClick={startCheckout} disabled={paying}>
-            {paying ? t('portal.deposits.stripe.loading') : t('portal.deposits.stripe.submit')}
-          </Button>
-        </div>
+        ) : (
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-4">
+            <p className="text-sm font-semibold text-amber-300">{t('portal.deposits.firstDeposit.title')}</p>
+            <p className="text-xs text-gray-400 mt-1">{t('portal.deposits.firstDeposit.desc')}</p>
+            <p className="text-xs text-gray-500 mt-2">{t('portal.deposits.firstDeposit.hint')}</p>
+          </div>
+        )}
         <p className="text-xs text-gray-500 mt-3">{t('portal.deposits.stripe.hint')}</p>
         {msg && <p className="text-xs text-market-accent mt-2">{msg}</p>}
       </Card>

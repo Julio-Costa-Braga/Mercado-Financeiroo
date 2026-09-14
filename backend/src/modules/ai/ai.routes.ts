@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { authenticate, requireModules } from '../../middleware/auth'
+import { authenticate, requireModules, requireClientOrModules } from '../../middleware/auth'
 import {
   getBriefing,
   getClientSketch,
@@ -11,6 +11,7 @@ import {
 } from './ai.controller'
 import {
   getRagStatus,
+  indexMarketSnapshot,
   ragCreateDoc,
   ragDeleteDoc,
   ragIndexNews,
@@ -26,14 +27,15 @@ router.get('/questions', authenticate, requireModules('assistant'), getQuestions
 router.post('/onboarding', authenticate, requireModules('assistant'), submitOnboarding)
 router.get('/tips', authenticate, requireModules('assistant'), getTips)
 router.get('/clients/:clientId/sketch', authenticate, requireModules('assistant'), getClientSketch)
-router.post('/chat', authenticate, requireModules('assistant'), postChat)
+router.post('/chat', authenticate, requireClientOrModules('assistant'), postChat)
 
 // RAG — base de conhecimento
-router.get('/rag/status', authenticate, requireModules('assistant'), getRagStatus)
+router.get('/rag/status', authenticate, requireClientOrModules('assistant'), getRagStatus)
 router.get('/rag/docs', authenticate, requireModules('assistant', 'admin'), ragListDocs)
 router.post('/rag/docs', authenticate, requireModules('assistant', 'admin'), ragCreateDoc)
+router.post('/rag/market/index', authenticate, requireModules('assistant', 'admin'), indexMarketSnapshot)
 router.delete('/rag/docs/:id', authenticate, requireModules('assistant', 'admin'), ragDeleteDoc)
 router.post('/rag/news/index', authenticate, requireModules('assistant', 'admin'), ragIndexNews)
-router.post('/rag/search', authenticate, requireModules('assistant'), ragSearch)
+router.post('/rag/search', authenticate, requireClientOrModules('assistant'), ragSearch)
 
 export default router

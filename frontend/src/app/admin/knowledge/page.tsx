@@ -92,6 +92,20 @@ export default function AdminKnowledgePage() {
     }
   }
 
+  async function handleIndexMarket() {
+    setBusy(true)
+    setMessage('')
+    try {
+      const d = await api.post<{ indexed: number; deleted: number }>('/ai/rag/market/index')
+      setMessage(t('knowledge.indexMarket.done').replace('{{added}}', String(d.indexed)).replace('{{deleted}}', String(d.deleted)))
+      load()
+    } catch (err: any) {
+      setMessage(err.message || 'Erro ao indexar o mercado')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function handleDelete(id: string) {
     if (!window.confirm(t('knowledge.delete.confirm'))) return
     try {
@@ -120,9 +134,14 @@ export default function AdminKnowledgePage() {
         title={t('knowledge.title')}
         subtitle={t('knowledge.subtitle')}
         actions={
-          <Button onClick={handleIndexNews} disabled={busy} variant="ghost">
-            {t('knowledge.indexNews')}
-          </Button>
+          <>
+            <Button onClick={handleIndexMarket} disabled={busy} variant="ghost">
+              {t('knowledge.indexMarket')}
+            </Button>
+            <Button onClick={handleIndexNews} disabled={busy} variant="ghost">
+              {t('knowledge.indexNews')}
+            </Button>
+          </>
         }
       />
 

@@ -1,9 +1,10 @@
 'use client'
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Main } from '@/components/layout'
 import { Card, Spinner, StatusBadge, formatDate } from '@/components/ui'
 import { api } from '@/lib/api'
+import { useI18n } from '@/lib/i18n'
 
 interface Client {
   id: string
@@ -18,6 +19,7 @@ interface Client {
 }
 
 export default function ClientsPage() {
+  const { t } = useI18n()
   const [clients, setClients] = useState<Client[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -25,6 +27,9 @@ export default function ClientsPage() {
   const [churnMin, setChurnMin] = useState('')
   const [search, setSearch] = useState('')
   const [showCreate, setShowCreate] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [importMsg, setImportMsg] = useState('')
+  const fileRef = useRef<HTMLInputElement>(null)
   const [newClient, setNewClient] = useState({ name: '', email: '', country: '', interests: '' })
 
   const load = useCallback(async () => {
@@ -66,6 +71,25 @@ export default function ClientsPage() {
     }
   }
 
+  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImporting(true)
+    setImportMsg('')
+    const form = new FormData()
+    form.append('file', file)
+    try {
+      const d = await api.postForm<{ imported: number; skipped: string[]; totalRows: number }>('/clients/import', form)
+      setImportMsg(t('clients.import.done').replace('{{imported}}', String(d.imported)).replace('{{skipped}}', String(d.skipped?.length || 0)))
+      load()
+    } catch (err: any) {
+      setImportMsg(err.message || t('clients.import.error'))
+    } finally {
+      setImporting(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
   return (
     <Main>
       <header className="mb-6 flex items-center justify-between">
@@ -73,10 +97,28 @@ export default function ClientsPage() {
           <h1 className="text-xl font-bold text-white">Clientes</h1>
           <p className="text-sm text-gray-500">{total} clientes</p>
         </div>
-        <button onClick={() => setShowCreate(!showCreate)} className="bg-market-accent text-white text-sm px-3 py-2 rounded-md hover:opacity-90">
-          {showCreate ? 'Cancelar' : '+ Novo cliente'}
-        </button>
+        <div className="flex items-center gap-2">
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            className="hidden"
+            onChange={handleImportFile}
+          />
+          <button
+            onClick={() => fileRef.current?.click()}
+            disabled={importing}
+            className="bg-market-card text-white text-sm px-3 py-2 rounded-md hover:opacity-90 disabled:opacity-50"
+          >
+            {importing ? t('clients.import.submit') + '…' : t('clients.import.button')}
+          </button>
+          <button onClick={() => setShowCreate(!showCreate)} className="bg-market-accent text-white text-sm px-3 py-2 rounded-md hover:opacity-90">
+            {showCreate ? 'Cancelar' : '+ Novo cliente'}
+          </button>
+        </div>
       </header>
+
+      {importMsg && <p className="text-xs text-market-accent mb-3">{importMsg}</p>}
 
       {showCreate && (
         <Card className="mb-4">

@@ -3,6 +3,7 @@ import { Errors } from '../../utils/errors'
 import {
   deleteKnowledgeDoc,
   indexDocument,
+  indexMarketSnapshot as indexMarketSnapshotDocs,
   indexRecentNews,
   listKnowledgeDocs,
   ragStatusDetailed,
@@ -50,6 +51,15 @@ export async function ragIndexNews(req: Request, res: Response, next: NextFuncti
   try {
     const { limit } = req.query as any
     const result = await indexRecentNews(parseInt(limit) || 20)
+    res.json(result)
+  } catch (err) {
+    next(err)
+  }
+}
+
+export async function indexMarketSnapshot(_req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await indexMarketSnapshotDocs()
     res.json(result)
   } catch (err) {
     next(err)

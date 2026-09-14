@@ -6,6 +6,7 @@ import {
   getClient,
   createClient,
   updateClient,
+  importClients,
   addInterest,
   removeInterest,
   addNote,
@@ -27,6 +28,7 @@ router.get('/', authenticate, requireTeam, requireModules('clients'), listClient
 router.get('/priority', authenticate, requireTeam, requireModules('clients'), getPriorityClients)
 router.get('/:id', authenticate, requireTeam, requireModules('clients'), getClient)
 router.post('/', authenticate, requireTeam, requireModules('clients'), createClient)
+router.post('/import', authenticate, requireTeam, requireModules('clients'), upload.single('file'), importClients)
 router.put('/:id', authenticate, requireTeam, requireModules('clients'), updateClient)
 router.post('/:id/interests', authenticate, requireTeam, requireModules('clients'), addInterest)
 router.delete('/:id/interests', authenticate, requireTeam, requireModules('clients'), removeInterest)

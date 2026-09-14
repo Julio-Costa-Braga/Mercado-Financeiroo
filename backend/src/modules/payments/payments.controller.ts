@@ -7,9 +7,27 @@ import { autoSettleDeposit } from '../sales/sales.controller'
 // Pagamentos do cliente via Stripe (MVP: deposito em conta).
 // Checkout Session hosted (Stripe) + webhook que registra o FinancialEvent
 // e dispara o handoff automatico (autoSettleDeposit) quando aprovado.
+//
+// Quem cria:
+// - Vendedor/equipe (módulo deposits): cria um checkout passando clientId.
+// - Cliente: só pode depositar sozinho DEPOIS do primeiro depósito (que é
+//   criado pelo vendedor). Enquanto não houver primeiro depósito, retorna 403.
 
 const STRIPE_API = 'https://api.stripe.com/v1'
 const SUPPORTED_CURRENCIES = ['usd', 'brl', 'eur']
+const DEPOSIT_TYPES = ['DEPOSIT', 'INITIAL_DEPOSIT', 'REPEAT_DEPOSIT', 'FTD']
+
+function paymentMethodsFor(currency: string): string[] {
+  const base = ['card']
+  if (currency === 'brl') base.push('pix')
+  return base
+}
+
+function formatAmount(amount: number, currency: string): string {
+  const cur = currency.toUpperCase()
+  const symbol = cur === 'BRL' ? 'R$' : cur === 'EUR' ? '€' : '$'
+  return `${symbol} ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
 
 export async function createDepositCheckout(req: Request, res: Response, next: NextFunction) {
   try {
@@ -17,7 +35,7 @@ export async function createDepositCheckout(req: Request, res: Response, next: N
       throw Errors.badRequest('Pagamentos online indisponíveis no momento')
     }
 
-    const { amount, currency } = req.body as { amount?: number; currency?: string }
+    const { amount, currency, clientId } = req.body as { amount?: number; currency?: string; clientId?: string }
     const value = Number(amount)
     if (!Number.isFinite(value) || value < 1 || value > 100000) {
       throw Errors.badRequest('Valor do depósito deve estar entre 1 e 100000')
@@ -27,24 +45,46 @@ export async function createDepositCheckout(req: Request, res: Response, next: N
       throw Errors.badRequest('Moeda não suportada')
     }
 
-    const client = await prisma.client.findUnique({ where: { userId: req.user!.id } })
-    if (!client) throw Errors.notFound('Perfil de cliente não vinculado')
+    const isTeam = req.user!.role !== 'CLIENT'
+
+    let client
+    if (isTeam) {
+      if (!clientId) throw Errors.badRequest('clientId é obrigatório para criar depósito de um cliente')
+      client = await prisma.client.findUnique({ where: { id: clientId } })
+      if (!client) throw Errors.notFound('Cliente não encontrado')
+    } else {
+      client = await prisma.client.findUnique({ where: { userId: req.user!.id } })
+      if (!client) throw Errors.notFound('Perfil de cliente não vinculado')
+
+      const hasFirstDeposit = await prisma.financialEvent.findFirst({
+        where: { clientId: client.id, type: { in: DEPOSIT_TYPES } },
+      })
+      if (!hasFirstDeposit) {
+        throw Errors.forbidden('O primeiro depósito é realizado com o seu vendedor. Depois dele, você poderá depositar quando quiser.')
+      }
+    }
 
     const cents = Math.round(value * 100)
-    const amountLabel = value.toFixed(2)
+    const amountLabel = formatAmount(value, cur)
+    const email = client.email || (isTeam ? undefined : req.user!.email)
     const body = new URLSearchParams()
     body.set('mode', 'payment')
     body.set('success_url', `${frontendUrl()}/portal/deposits?stripe=success`)
     body.set('cancel_url', `${frontendUrl()}/portal/deposits?stripe=canceled`)
     body.set('client_reference_id', client.id)
-    body.set('customer_email', client.email || req.user!.email)
+    if (email) body.set('customer_email', email)
     body.set('metadata[clientId]', client.id)
-    body.set('metadata[userId]', req.user!.id)
+    body.set('metadata[requestedBy]', req.user!.id)
+    if (isTeam) body.set('metadata[createdBySeller]', 'true')
     body.set('line_items[0][price_data][currency]', cur)
     body.set('line_items[0][price_data][unit_amount]', String(cents))
-    body.set('line_items[0][price_data][product_data][name]', 'Depósito em conta')
-    body.set('line_items[0][price_data][product_data][description]', `Depósito de ${amountLabel} ${cur.toUpperCase()}`)
+    body.set('line_items[0][price_data][product_data][name]', cur === 'brl' ? 'Depósito em conta (BRL)' : 'Depósito em conta')
+    body.set('line_items[0][price_data][product_data][description]', `Depósito de ${amountLabel}`)
     body.set('line_items[0][quantity]', '1')
+
+    // Métodos de pagamento: cartão sempre; PIX para BRL (somente moeda BRL).
+    const pms = paymentMethodsFor(cur)
+    pms.forEach((m, i) => body.set(`payment_method_types[${i}]`, m))
 
     const resp = await fetch(`${STRIPE_API}/checkout/sessions`, {
       method: 'POST',
@@ -61,7 +101,7 @@ export async function createDepositCheckout(req: Request, res: Response, next: N
       throw Errors.badRequest(data?.error?.message || 'Falha ao criar sessão de pagamento')
     }
 
-    res.json({ url: data.url, sessionId: data.id })
+    res.json({ url: data.url, sessionId: data.id, clientId: client.id })
   } catch (err) {
     next(err)
   }

@@ -213,14 +213,103 @@ function LostModal({
   )
 }
 
-function KanbanCardChip({ card, view, onBackToBase }: {
+function CollectChargeModal({
+  card,
+  onClose,
+}: {
+  card: SalesCard
+  onClose: () => void
+}) {
+  const { t } = useI18n()
+  const [amount, setAmount] = useState('')
+  const [currency, setCurrency] = useState('usd')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  async function create() {
+    const value = Number(amount)
+    if (!Number.isFinite(value) || value < 1) {
+      setError(t('sales.deposit.create.error'))
+      return
+    }
+    setBusy(true)
+    setError('')
+    try {
+      const d = await api.post<{ url: string }>('/payments/checkout', {
+        amount: value,
+        currency,
+        clientId: card.id,
+      })
+      window.location.href = d.url
+    } catch (err: any) {
+      setError(err.message || t('sales.deposit.create.error'))
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={onClose}>
+      <div className="w-full max-w-sm rounded-2xl border border-market-border bg-market-card p-5 sm:p-6" onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-base font-semibold text-white">{t('sales.deposit.create.title')}</h3>
+        <p className="text-xs text-gray-500 mt-1">{card.name} · {t('sales.deposit.create.subtitle')}</p>
+        <div className="mt-4 space-y-3">
+          <div>
+            <label className="text-xs text-gray-500 block mb-1.5">{t('sales.deposit.create.amount')}</label>
+            <input
+              type="number"
+              min={1}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="Ex.: 500"
+              className="w-full rounded-xl border border-market-border bg-market-bg px-3 py-2.5 text-sm text-gray-200 placeholder:text-gray-600 focus:border-market-accent focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 block mb-1.5">{t('sales.deposit.create.currency')}</label>
+            <select
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value)}
+              className="w-full rounded-xl border border-market-border bg-market-bg px-3 py-2.5 text-sm text-gray-200 focus:border-market-accent focus:outline-none"
+            >
+              <option value="usd">USD</option>
+              <option value="brl">BRL (PIX disponível)</option>
+              <option value="eur">EUR</option>
+            </select>
+          </div>
+        </div>
+        <p className="text-[11px] text-gray-600 mt-3">{t('sales.deposit.create.hint')}</p>
+        {error && <p className="text-xs text-market-down mt-2">{error}</p>}
+        <div className="mt-5 flex justify-end gap-2">
+          <Button variant="ghost" onClick={onClose} disabled={busy}>{t('sales.assign.cancel')}</Button>
+          <Button onClick={create} disabled={busy}>
+            {busy ? t('sales.deposit.create.sending') : t('sales.deposit.create.submit')}
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function KanbanCardChip({ card, view, onBackToBase, onCollect }: {
   card: SalesCard
   view: 'seller' | 'gateway'
   onBackToBase: (id: string) => void
+  onCollect: (card: SalesCard) => void
 }) {
   const { t } = useI18n()
   return (
     <div className="flex flex-wrap gap-1.5 mt-2">
+      {view === 'seller' && (card.stage === 'ASSIGNED' || card.stage === 'CONTACTED') && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onCollect(card)
+          }}
+          className="text-[10px] bg-market-accent/10 text-market-accent border border-market-accent/20 px-1.5 py-0.5 rounded hover:bg-market-accent/20 transition-colors"
+        >
+          {t('sales.collect')}
+        </button>
+      )}
       {card.owner && (
         <span className="text-[10px] bg-blue-400/10 text-blue-300 border border-blue-400/20 px-1.5 py-0.5 rounded flex items-center gap-1">
           <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
@@ -275,6 +364,7 @@ export default function SalesPage() {
   const [assignModal, setAssignModal] = useState<{ card: SalesCard; group: 'SALES' | 'RETENTION'; target: StageKey } | null>(null)
   const [depositModal, setDepositModal] = useState<SalesCard | null>(null)
   const [lostModal, setLostModal] = useState<SalesCard | null>(null)
+  const [collectModal, setCollectModal] = useState<SalesCard | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -517,7 +607,7 @@ export default function SalesPage() {
                           {[c.country, c.email].filter(Boolean).join(' · ') || '—'}
                         </p>
 
-                        <KanbanCardChip card={c} view={view} onBackToBase={(id) => doMove(id, 'CRM_BASE')} />
+                        <KanbanCardChip card={c} view={view} onBackToBase={(id) => doMove(id, 'CRM_BASE')} onCollect={setCollectModal} />
 
                         {c.lastContactAt && (
                           <p className="mt-2 text-[11px] text-gray-500">{fmtDay(c.lastContactAt)}</p>
@@ -742,6 +832,13 @@ export default function SalesPage() {
             setLostModal(null)
           }}
           onClose={() => setLostModal(null)}
+        />
+      )}
+
+      {collectModal && (
+        <CollectChargeModal
+          card={collectModal}
+          onClose={() => setCollectModal(null)}
         />
       )}
 

@@ -3,6 +3,7 @@ import { prisma } from '../../config/prisma'
 import { Errors } from '../../utils/errors'
 import { dispatch, EventTopics } from '../../config/events'
 import { generateClientSketch } from '../ai/ai.service'
+import * as XLSX from 'xlsx'
 
 const CLIENT_SELECT = {
   id: true,
@@ -136,7 +137,10 @@ export async function createClient(req: Request, res: Response, next: NextFuncti
         phone,
         country,
         status,
-        ownerId: ownerId || req.user!.id,
+        // Clientes novos entram na base do CRM (VENDAS) sem dono: o gateway
+        // (ADMIN/MANAGER/CRM) faz a atribuição para um vendedor.
+        ownerId: ownerId || null,
+        salesStage: 'CRM_BASE',
         experience,
         objective,
         interests: interests ? { create: interests.map((i: string) => ({ interest: i })) } : undefined,
@@ -151,6 +155,115 @@ export async function createClient(req: Request, res: Response, next: NextFuncti
     })
 
     res.status(201).json({ client })
+  } catch (err) {
+    next(err)
+  }
+}
+
+// Importa clientes em massa a partir de um arquivo Excel (.xlsx/.xls) ou CSV.
+// Colunas aceitas (case-insensitive, sem acento): name/nome, email, phone/telefone,
+// country/pais/país, interests/interesses (separado por vírgula).
+// Clientes novos entram direto na base do CRM (VENDAS) sem dono (salesStage CRM_BASE).
+export async function importClients(req: Request, res: Response, next: NextFunction) {
+  try {
+    const file = (req as any).file as Express.Multer.File | undefined
+    if (!file) throw Errors.badRequest('Envie um arquivo Excel ou CSV')
+    if (file.size > 12 * 1024 * 1024) throw Errors.badRequest('Arquivo excede 12MB')
+
+    let workbook: XLSX.WorkBook
+    try {
+      workbook = XLSX.read(file.buffer, { type: 'buffer' })
+    } catch {
+      throw Errors.badRequest('Arquivo inválido — envie um .xlsx, .xls ou CSV válido')
+    }
+
+    const sheet = workbook.Sheets[workbook.SheetNames[0]]
+    if (!sheet) throw Errors.badRequest('O arquivo não possui planilhas')
+
+    const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' })
+    if (rows.length === 0) throw Errors.badRequest('A planilha está vazia')
+
+    const norm = (h: string) =>
+      String(h || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim()
+
+    const keyFor = (header: string, variants: string[]) => {
+      const n = norm(header)
+      return variants.some((v) => n.includes(v))
+    }
+
+    const imported: any[] = []
+    const skipped: string[] = []
+    let totalRows = 0
+
+    for (const row of rows) {
+      totalRows += 1
+      const headers = Object.keys(row)
+      let name = ''
+      let email = ''
+      let phone = ''
+      let country = ''
+      let interests: string[] = []
+
+      for (const h of headers) {
+        const raw = String(row[h] ?? '').trim()
+        if (!raw) continue
+        if (keyFor(h, ['nome', 'name', 'cliente'])) name = name || raw
+        else if (keyFor(h, ['email', 'e-mail', 'mail'])) email = email || raw
+        else if (keyFor(h, ['telefone', 'phone', 'celular', 'tel'])) phone = phone || raw
+        else if (keyFor(h, ['pais', 'país', 'country', 'p'])) country = country || raw
+        else if (keyFor(h, ['interesse', 'interests', 'interesses'])) interests = raw.split(/[,;]/).map((i) => i.trim()).filter(Boolean)
+      }
+
+      if (!name) {
+        skipped.push(`linha ${totalRows + 1}: sem nome`)
+        continue
+      }
+
+      const exists = email
+        ? await prisma.client.findFirst({
+            where: { email: email.toLowerCase() },
+            select: { id: true },
+          })
+        : null
+
+      if (exists) {
+        skipped.push(`${name}: e-mail já cadastrado`)
+        continue
+      }
+
+      const client = await prisma.client.create({
+        data: {
+          name,
+          email: email || undefined,
+          phone: phone || undefined,
+          country: country || undefined,
+          salesStage: 'CRM_BASE',
+          interests: interests.length ? { create: interests.map((i) => ({ interest: i, weight: 5 })) } : undefined,
+        },
+        select: CLIENT_SELECT,
+      })
+      imported.push(client)
+
+      queueMicrotask(() => {
+        generateClientSketch(client.id).catch(() => {})
+      })
+    }
+
+    await prisma.auditLog.create({
+      data: {
+        userId: req.user!.id,
+        action: 'clients.imported',
+        entity: 'Client',
+        entityId: '',
+        meta: { imported: imported.length, skipped: skipped.length, totalRows },
+      } as any,
+    })
+
+    res.status(201).json({ imported: imported.length, skipped: skipped.slice(0, 50), totalRows })
   } catch (err) {
     next(err)
   }

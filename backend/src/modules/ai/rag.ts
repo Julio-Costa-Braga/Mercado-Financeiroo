@@ -211,6 +211,69 @@ export async function indexRecentNews(limit = 20): Promise<{ indexed: number; sk
   return { indexed, skipped }
 }
 
+// Indexa um snapshot real do mercado (ativos + últimos quotes + fundamentos)
+// como documentos da categoria 'MARKET'. Reindexa tudo (apaga os anteriores
+// da mesma fonte para evitar duplicação quando os preços mudam).
+export async function indexMarketSnapshot(): Promise<{ indexed: number; deleted: number }> {
+  const assets = await prisma.asset.findMany({
+    where: { status: 'ACTIVE' },
+    include: {
+      quotes: { orderBy: { updatedAt: 'desc' }, take: 1 },
+      fundamentals: { orderBy: { updatedAt: 'desc' }, take: 1 },
+    },
+  })
+
+  const deleted = await prisma.knowledgeDoc.deleteMany({ where: { category: 'MARKET', source: 'market-snapshot' } })
+
+  const TYPE_LABEL: Record<string, string> = {
+    STOCK: 'Ação',
+    CRYPTO: 'Criptomoeda',
+    FOREX: 'Par de moedas',
+    ETF: 'ETF',
+    INDEX: 'Índice',
+    COMMODITY: 'Commodity',
+  }
+
+  const fmtBig = (v: bigint | null | undefined): string => {
+    if (v == null) return '—'
+    const n = Number(v)
+    if (n >= 1e12) return `US$ ${(n / 1e12).toFixed(2)} tri`
+    if (n >= 1e9) return `US$ ${(n / 1e9).toFixed(2)} bi`
+    if (n >= 1e6) return `US$ ${(n / 1e6).toFixed(2)} mi`
+    return `US$ ${n.toLocaleString('en-US')}`
+  }
+
+  const named = (q: any) => {
+    if (q?.changePct1D == null) return '—'
+    const dir = q.changePct1D >= 0 ? '+' : ''
+    return `${dir}${q.changePct1D.toFixed(2)}%`
+  }
+
+  let indexed = 0
+  for (const a of assets) {
+    const q = a.quotes[0]
+    const f = a.fundamentals[0]
+
+    const title = `${a.ticker} — ${a.name}`
+    const content = [
+      `${a.ticker} (${a.name}) é ${(TYPE_LABEL[a.type] || a.type).toLowerCase()} listada em ${a.exchange || 'N/A'} (${a.market || a.country || 'N/A'}).`,
+      `Última cotação: ${q?.price != null ? `${a.currency || 'USD'} ${Number(q.price).toLocaleString('en-US')} (${named(q)})` : 'sem cotação atual'}.`,
+      f
+        ? `Fundamentos: Market Cap ${fmtBig(f.marketCap)} · P/L ${f.peRatio != null ? f.peRatio.toFixed(2) : '—'} · Dividend Yield ${f.dividendYield != null ? `${f.dividendYield.toFixed(2)}%` : '—'} · ROE ${f.roe != null ? `${f.roe.toFixed(1)}%` : '—'} · EV/EBITDA ${f.evEbitda != null ? f.evEbitda.toFixed(2) : '—'}`
+        : 'Fundamentos: não disponíveis.',
+      a.sector ? `Setor: ${a.sector}${a.industry ? ` · Indústria: ${a.industry}` : ''}.` : '',
+      `Variação: 1D ${named(q)} · 5D ${q?.changePct5D != null ? named({ changePct1D: q.changePct5D }) : '—'} · 30D ${q?.changePct30D != null ? named({ changePct1D: q.changePct30D }) : '—'}.`,
+    ]
+      .filter(Boolean)
+      .join('\n')
+
+    await indexDocument({ title, content, category: 'MARKET', source: 'market-snapshot' })
+    indexed += 1
+  }
+
+  return { indexed, deleted: deleted.count }
+}
+
 export function ragStatus() {
   return {
     enabled: embeddingEnabled(),

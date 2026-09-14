@@ -1,5 +1,5 @@
 'use client'
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Main } from '@/components/layout'
 import { Button, Card, PageHeader, Spinner, StatusBadge, inputCls, selectCls } from '@/components/ui'
 import { api } from '@/lib/api'
@@ -67,7 +67,122 @@ function SectionList({ sections }: { sections: string[] }) {
   )
 }
 
+interface ChatMsg {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+const CHAT_SUGGESTIONS = [
+  'O que está em alta hoje?',
+  'Vale investir em cripto?',
+  'Como diversificar minha carteira?',
+]
+
+function ClientChat() {
+  const [messages, setMessages] = useState<ChatMsg[]>([
+    { role: 'assistant', content: 'Olá! Pode me perguntar sobre investimentos, ativos ou o mercado.' },
+  ])
+  const [draft, setDraft] = useState('')
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState('')
+  const endRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, sending])
+
+  async function sendMessage(text: string) {
+    const value = text.trim()
+    if (!value || sending) return
+    const next = [...messages, { role: 'user' as const, content: value }]
+    setMessages(next)
+    setDraft('')
+    setSending(true)
+    setError('')
+    try {
+      const res = await api.post<{ reply: string; ai: boolean }>('/ai/chat', {
+        message: value,
+        history: messages.slice(-6),
+        locale: 'pt',
+      })
+      setMessages((m) => [...m, { role: 'assistant', content: res.reply }])
+    } catch (err: any) {
+      setError(err.message || 'Erro ao enviar mensagem')
+      setMessages((m) => m.slice(0, -1))
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <Main>
+      <PageHeader
+        title="Assistente IA"
+        subtitle="Tire dúvidas sobre investimentos, ativos e o mercado em tempo real"
+      />
+
+      <Card className="max-w-3xl mx-auto flex flex-col h-[calc(100vh-220px)]">
+        <div className="flex-1 overflow-y-auto space-y-3 p-4">
+          {messages.map((m, i) => (
+            <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div
+                className={`max-w-[85%] px-3.5 py-2.5 rounded-2xl text-[13px] leading-relaxed whitespace-pre-wrap ${
+                  m.role === 'user'
+                    ? 'bg-market-accent/15 border border-market-accent/40 text-gray-100'
+                    : 'bg-market-bg border border-market-border text-gray-300'
+                }`}
+              >
+                {m.content}
+              </div>
+            </div>
+          ))}
+          {sending && (
+            <div className="flex justify-start">
+              <div className="bg-market-bg border border-market-border rounded-2xl px-3 py-2 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-market-accent animate-pulse" />
+                <span className="w-1.5 h-1.5 rounded-full bg-market-accent animate-pulse [animation-delay:150ms]" />
+                <span className="w-1.5 h-1.5 rounded-full bg-market-accent animate-pulse [animation-delay:300ms]" />
+              </div>
+            </div>
+          )}
+          {error && <p className="text-[11px] text-market-down">{error}</p>}
+          <div ref={endRef} />
+        </div>
+
+        <div className="px-4 pb-2 flex flex-wrap gap-1.5">
+          {CHAT_SUGGESTIONS.map((s) => (
+            <button
+              key={s}
+              onClick={() => sendMessage(s)}
+              className="text-[11px] px-2.5 py-1 rounded-full bg-market-bg border border-market-border text-gray-400 hover:text-market-accent hover:border-market-accent/40 transition-all"
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            sendMessage(draft)
+          }}
+          className="p-3 pt-2 border-t border-market-border flex gap-2"
+        >
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="Escreva sua pergunta..."
+            className="flex-1 bg-market-bg border border-market-border rounded-xl px-3 py-2.5 text-sm text-gray-200 outline-none focus:border-market-accent/50"
+          />
+          <Button type="submit" disabled={sending || !draft.trim()}>Enviar</Button>
+        </form>
+      </Card>
+    </Main>
+  )
+}
+
 export default function AssistantPage() {
+  const [isClient, setIsClient] = useState<boolean | null>(null)
   const [tab, setTab] = useState<Tab>('briefing')
   const [scope, setScope] = useState('platform')
   const [id, setId] = useState('')
@@ -113,7 +228,18 @@ export default function AssistantPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  useEffect(() => {
+    api
+      .get<{ user: { role: string } }>('/auth/me')
+      .then((d) => setIsClient(d.user?.role === 'CLIENT'))
+      .catch(() => setIsClient(false))
+  }, [])
+
   const needsId = scope === 'asset' || scope === 'sector' || scope === 'client'
+
+  if (isClient !== null && isClient) {
+    return <ClientChat />
+  }
 
   return (
     <Main>

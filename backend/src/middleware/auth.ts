@@ -107,3 +107,62 @@ export function requireModules(...modules: string[]) {
     }
   }
 }
+
+// Permite acesso a clientes (portal) e a usuários de equipe que possuam um
+// dos módulos informados. Usado para liberar funcionalidades da IA ao cliente
+// sem expor as rotas internas (briefings, dicas, esboços etc.).
+export function requireClientOrModules(...modules: string[]) {
+  return async (req: Request, _res: Response, next: NextFunction) => {
+    try {
+      if (!req.user) {
+        return next(Errors.unauthorized())
+      }
+      if (req.user.role === 'CLIENT') {
+        return next()
+      }
+      const dbUser = await prisma.user.findUnique({
+        where: { id: req.user.id },
+        select: { role: true, modules: true },
+      })
+      if (!dbUser) {
+        return next(Errors.unauthorized())
+      }
+      const eff = effectiveModules(dbUser)
+      if (!modules.some((m) => eff.includes(m))) {
+        return next(Errors.forbidden())
+      }
+      next()
+    } catch (err) {
+      next(err)
+    }
+  }
+}
+
+// Permite que a equipe (com um dos módulos) ou o próprio cliente manipulem os
+// pagamentos — usado no checkout de depósitos (vendedor cria para um cliente).
+export function requireTeamModulesOrClient(...modules: string[]) {
+  return async (req: Request, _res: Response, next: NextFunction) => {
+    try {
+      if (!req.user) {
+        return next(Errors.unauthorized())
+      }
+      if (req.user.role === 'CLIENT') {
+        return next()
+      }
+      const dbUser = await prisma.user.findUnique({
+        where: { id: req.user.id },
+        select: { role: true, modules: true },
+      })
+      if (!dbUser) {
+        return next(Errors.unauthorized())
+      }
+      const eff = effectiveModules(dbUser)
+      if (!modules.some((m) => eff.includes(m))) {
+        return next(Errors.forbidden())
+      }
+      next()
+    } catch (err) {
+      next(err)
+    }
+  }
+}
