@@ -7,8 +7,22 @@ import { createNotification } from '../notifications/notifications.controller'
 const DEPOSIT_TYPES = ['DEPOSIT', 'INITIAL_DEPOSIT', 'REPEAT_DEPOSIT', 'FTD']
 
 const SALES_STAGES = ['CRM_BASE', 'ASSIGNED', 'CONTACTED', 'DEPOSITED', 'RETENTION', 'LOST']
+// Chave pública da coluna no kanban (minúscula, igual ao frontend e ao kanban de retenção)
+const COLUMN_KEY: Record<string, string> = {
+  CRM_BASE: 'base',
+  ASSIGNED: 'assigned',
+  CONTACTED: 'contacted',
+  DEPOSITED: 'deposited',
+  RETENTION: 'retention',
+  LOST: 'lost',
+}
+const NORMALIZE_STAGE = (s?: string) => {
+  const up = (s || '').trim().toUpperCase()
+  if (up === 'BASE') return 'CRM_BASE'
+  return up
+}
 const GATEWAY_ROLES = ['ADMIN', 'MANAGER', 'CRM']
-const SELLER_MOVES = ['CONTACTED', 'DEPOSITED', 'LOST']
+const SELLER_MOVES = ['CONTACTED', 'DEPOSITED', 'LOST', 'CRM_BASE']
 const GATEWAY_MOVES = ['CRM_BASE', 'ASSIGNED', 'CONTACTED', 'RETENTION', 'LOST']
 
 export async function getSalesUsers(req: Request, res: Response, next: NextFunction) {
@@ -48,11 +62,13 @@ export async function getSalesKanban(req: Request, res: Response, next: NextFunc
       },
     })
 
-    const columns: Record<string, any[]> = Object.fromEntries(SALES_STAGES.map((s) => [s, []]))
+    const columns: Record<string, any[]> = Object.fromEntries(
+      SALES_STAGES.map((s) => [COLUMN_KEY[s], []])
+    )
 
     for (const c of clients) {
       const hasDeposit = c.events.some((e: any) => DEPOSIT_TYPES.includes(e.type))
-      columns[c.salesStage]?.push({
+      columns[COLUMN_KEY[c.salesStage]]?.push({
         id: c.id,
         name: c.name,
         email: c.email,
@@ -98,7 +114,7 @@ export async function getSalesKanban(req: Request, res: Response, next: NextFunc
 
     res.json({
       columns,
-      counts: Object.fromEntries(SALES_STAGES.map((s) => [s, columns[s].length])),
+      counts: Object.fromEntries(SALES_STAGES.map((s) => [COLUMN_KEY[s], columns[COLUMN_KEY[s]].length])),
       users,
       view: isSeller ? 'seller' : 'gateway',
     })
@@ -120,11 +136,12 @@ async function resolveAssignee(assigneeId?: string, expectedRole?: string) {
 export async function moveSalesCard(req: Request, res: Response, next: NextFunction) {
   try {
     const { id } = req.params
-    const { toStage, assigneeId, reason } = req.body as {
+    const { toStage: rawStage, assigneeId, reason } = req.body as {
       toStage?: string
       assigneeId?: string
       reason?: string
     }
+    const toStage = NORMALIZE_STAGE(rawStage)
     if (!toStage || !SALES_STAGES.includes(toStage)) {
       throw Errors.badRequest('Estágio de destino inválido')
     }
@@ -160,6 +177,10 @@ export async function moveSalesCard(req: Request, res: Response, next: NextFunct
     if (me.role === 'SALES') {
       if (toStage === 'CONTACTED') {
         data = { salesStage: 'CONTACTED' }
+      } else if (toStage === 'CRM_BASE') {
+        data = { salesStage: 'CRM_BASE', ownerId: null }
+        eventType = 'SALES_BASE'
+        eventMeta = { from: client.salesStage, bySeller: true }
       } else if (toStage === 'DEPOSITED') {
         const firstDeposit = await prisma.financialEvent.findFirst({
           where: { clientId: id, type: { in: DEPOSIT_TYPES } },

@@ -297,6 +297,12 @@ function KanbanCardChip({ card, view, onBackToBase, onCollect }: {
   onCollect: (card: SalesCard) => void
 }) {
   const { t } = useI18n()
+  const canReturnToBase =
+    card.stage !== 'CRM_BASE' &&
+    card.stage !== 'LOST' &&
+    (view === 'seller'
+      ? card.stage === 'ASSIGNED' || card.stage === 'CONTACTED'
+      : card.stage !== 'CRM_BASE')
   return (
     <div className="flex flex-wrap gap-1.5 mt-2">
       {view === 'seller' && (card.stage === 'ASSIGNED' || card.stage === 'CONTACTED') && (
@@ -308,6 +314,18 @@ function KanbanCardChip({ card, view, onBackToBase, onCollect }: {
           className="text-[10px] bg-market-accent/10 text-market-accent border border-market-accent/20 px-1.5 py-0.5 rounded hover:bg-market-accent/20 transition-colors"
         >
           {t('sales.collect')}
+        </button>
+      )}
+      {canReturnToBase && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onBackToBase(card.id)
+          }}
+          title={t('sales.base.return')}
+          className="text-[10px] bg-market-accent/10 text-market-accent border border-market-accent/20 px-1.5 py-0.5 rounded hover:bg-market-accent/20 transition-colors"
+        >
+          {'←'}
         </button>
       )}
       {card.owner && (
@@ -334,16 +352,6 @@ function KanbanCardChip({ card, view, onBackToBase, onCollect }: {
       )}
       {card.salesLostReason && (
         <span className="text-[10px] text-gray-500 px-1 py-0.5 italic truncate max-w-full">{card.salesLostReason}</span>
-      )}
-      {view === 'gateway' && card.stage === 'DEPOSITED' && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            onBackToBase(card.id)
-          }}
-          className="text-[10px] bg-market-accent/10 text-market-accent border border-market-accent/20 px-1.5 py-0.5 rounded hover:bg-market-accent/20 transition-colors"
-        >
-          {'←'}</button>
       )}
     </div>
   )
@@ -669,6 +677,14 @@ export default function SalesPage() {
                         <td className="py-2.5 pr-4 text-gray-400">{card.owner || '—'}</td>
                         <td className="py-2.5 pr-4"><StatusBadge status={card.status} /></td>
                         <td className="py-2.5 whitespace-nowrap">
+                          {stageKey !== 'base' && (
+                            <>
+                              <Button size="sm" variant="ghost" onClick={() => doMove(card.id, 'CRM_BASE')}>
+                                {t('sales.base.toBase')}
+                              </Button>
+                              <span className="inline-block w-2" />
+                            </>
+                          )}
                           <Button size="sm" onClick={() => setAssignModal({ card, group: 'SALES', target: 'assigned' })}>
                             {t('sales.base.toSeller')}
                           </Button>
