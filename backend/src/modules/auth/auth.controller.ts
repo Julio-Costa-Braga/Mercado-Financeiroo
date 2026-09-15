@@ -244,7 +244,7 @@ export async function resetPassword(req: Request, res: Response, next: NextFunct
   }
 }
 
-export async function getMe(req: Request, res: Response, next: NextFunction) {
+async function getMe(req: Request, res: Response, next: NextFunction) {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.user!.id },

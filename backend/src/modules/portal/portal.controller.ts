@@ -10,7 +10,7 @@ export function isDeposit(type: string): boolean {
   return DEPOSIT_TYPES.includes(type)
 }
 
-export async function clientFromUser(userId: string) {
+async function clientFromUser(userId: string) {
   const client = await prisma.client.findUnique({ where: { userId } })
   if (!client) throw Errors.notFound('Perfil de cliente não vinculado')
   return client
