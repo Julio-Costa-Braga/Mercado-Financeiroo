@@ -32,7 +32,7 @@ export async function callLLM(
   opts: LLMOpts = {},
 ): Promise<{ output: string; latencyMs: number } | null> {
   const temperature = opts.temperature ?? 0.4
-  const maxTokens = opts.maxTokens ?? 900
+  const maxTokens = opts.maxTokens ?? 500
   const start = Date.now()
 
   const buildBody = (messages: LLMMessage[]) => {
